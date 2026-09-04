@@ -15,6 +15,7 @@ default_step=20
 default_sample_nums=553
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
+default_np=8
 
 default_suffix_label='30K_bs50_Flow_DPM20'  # suffix of the line chart on wandb
 default_log_geneval=false
@@ -25,6 +26,10 @@ job_name=$(basename $(dirname $(dirname "$model_paths_file")))
 for arg in "$@"
 do
     case $arg in
+        --np=*)
+        np="${arg#*=}"
+        shift
+        ;;
         --step=*)
         step="${arg#*=}"
         shift
@@ -103,6 +108,7 @@ inference=${inference:-true}
 geneval=${geneval:-true}
 
 step=${step:-$default_step}
+np=${np:-$default_np}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
@@ -121,7 +127,7 @@ cleanup=${cleanup:-false}
 
 read -r -d '' cmd <<EOF
 bash scripts/infer_metric_run_inference_metric_geneval.sh $config_file $model_paths_file \
-      --inference_script=$inference_script --inference=$inference --geneval=$geneval \
+      --np=$np --inference_script=$inference_script --inference=$inference --geneval=$geneval \
       --step=$step --sample_nums=$sample_nums \
       --exist_time_prefix=$exist_time_prefix --cfg_scale=$cfg_scale \
       --suffix_label=$suffix_label --add_label=$add_label \

@@ -5,7 +5,7 @@
 # output/Sana_600M_img1024/checkpoints/xxxxx.pth
 
 # ================= sampler & data =================
-np=8    # number of GPU to use
+default_np=8    # number of GPUs to use
 default_step=20   # 14
 default_sample_nums=553
 default_sampling_algo="flow_dpm-solver"
@@ -20,6 +20,10 @@ model_paths=$2
 for arg in "$@"
 do
     case $arg in
+        --np=*)
+        np="${arg#*=}"
+        shift
+        ;;
         --step=*)
         step="${arg#*=}"
         shift
@@ -70,18 +74,24 @@ do
 done
 
 step=${step:-$default_step}
+np=${np:-$default_np}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
-samples_per_gpu=$((sample_nums / np))
 add_label=${add_label:-$default_add_label}
 ablation_key=${ablation_key:-''}
 ablation_selections=${ablation_selections:-''}
 img_nums_per_sample=${img_nums_per_sample:-$default_img_nums_per_sample}
 batch_size=${batch_size:-$default_batch_size}
 output_dir=${output_dir:-''}
-sssss
 
+if ! [[ "$np" =~ ^[1-9][0-9]*$ ]]; then
+  echo "--np must be a positive integer, got: $np" >&2
+  exit 2
+fi
+samples_per_gpu=$((sample_nums / np))
+
+echo "GPU count: $np"
 echo "Step: $step"
 echo "Sample numbers: $sample_nums"
 echo "Image numbers per sample: $img_nums_per_sample"
@@ -90,6 +100,17 @@ echo "Sampling Algo: $sampling_algo"
 echo "CFG scale: $cfg_scale"
 echo "Add label: $add_label"
 echo "Exist time prefix: $exist_time_prefix"
+
+wait_for_inference_jobs() {
+  local job_failed=0
+  local pid
+  for pid in "$@"; do
+    if ! wait "$pid"; then
+      job_failed=1
+    fi
+  done
+  return "$job_failed"
+}
 
 cmd_template="DPM_TQDM=True python scripts/inference_geneval.py --config={config_file} --model_path={model_path} \
     --sampling_algo $sampling_algo --step $step --cfg_scale $cfg_scale --sample_nums $sample_nums --n_samples $img_nums_per_sample \
@@ -118,6 +139,7 @@ fi
 
 echo "==================== inferencing ===================="
 if [[ "$model_paths" == *.pth ]]; then
+  pids=()
   for gpu_id in $(seq 0 $((np - 1))); do
     start_index=$((gpu_id * samples_per_gpu))
     end_index=$((start_index + samples_per_gpu))
@@ -134,8 +156,12 @@ if [[ "$model_paths" == *.pth ]]; then
     echo "Running on GPU $gpu_id: samples $start_index to $end_index"
     echo "cmd: $cmd"
     eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd &
+    pids+=("$!")
   done
-  wait
+  if ! wait_for_inference_jobs "${pids[@]}"; then
+    echo "GenEval image generation failed." >&2
+    exit 1
+  fi
 
 else
 
@@ -147,6 +173,7 @@ else
 
   while IFS= read -r model_path; do
     if [ -n "$model_path" ] && ! [[ $model_path == \#* ]]; then
+      pids=()
       for gpu_id in $(seq 0 $((np - 1))); do
         start_index=$((gpu_id * samples_per_gpu))
         end_index=$((start_index + samples_per_gpu))
@@ -162,9 +189,13 @@ else
 
         echo "Running on GPU $gpu_id: samples $start_index to $end_index"
         eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd &
+        pids+=("$!")
       done
 
-      wait
+      if ! wait_for_inference_jobs "${pids[@]}"; then
+        echo "GenEval image generation failed for: $model_path" >&2
+        exit 1
+      fi
     fi
   done < "$model_paths"
 fi

@@ -9,6 +9,7 @@ default_sample_nums=553                   # inference first $sample_nums sample 
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
 default_log_geneval=false
+default_np=8
 
 # 👇No need to change the code below
 if [ -n "$1" ]; then
@@ -22,6 +23,10 @@ fi
 for arg in "$@"
 do
     case $arg in
+        --np=*)
+        np="${arg#*=}"
+        shift
+        ;;
         --step=*)
         step="${arg#*=}"
         shift
@@ -106,6 +111,7 @@ done
 inference=${inference:-true}
 geneval=${geneval:-true}
 
+np=${np:-$default_np}
 step=${step:-$default_step}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
@@ -149,13 +155,16 @@ if [ "$inference" = true ]; then
   rm $metric_dir/tmp_geneval_* || true
   read -r -d '' cmd <<EOF
 bash scripts/infer_run_inference_geneval.sh $config_file $model_paths_file \
-      --inference_script=$inference_script --step=$step --sample_nums=$sample_nums --add_label=$add_label \
+      --np=$np --inference_script=$inference_script --step=$step --sample_nums=$sample_nums --add_label=$add_label \
       --cfg_scale=$cfg_scale \
       --exist_time_prefix=$exist_time_prefix --if_save_dirname=true --sampling_algo=$sampling_algo \
       --ablation_key=$ablation_key --ablation_selections="$ablation_selections"
 EOF
   echo $cmd
-  bash -c "${cmd}"
+  if ! bash -c "${cmd}"; then
+    echo "GenEval image generation failed." >&2
+    exit 1
+  fi
   > "$cache_file_path"  # clean file
   # add all tmp_geneval_*.txt file into $cache_file_path
   for file in $metric_dir/tmp_geneval_*.txt; do
@@ -175,12 +184,15 @@ echo "img_path: $img_path, exp_paths_file: $exp_paths_file"
 if [ "$geneval" = true ]; then
   read -r -d '' cmd <<EOF
 bash tools/metrics/compute_geneval.sh $img_path $exp_paths_file \
-      --sample_nums=$sample_nums --suffix_label=$suffix_label \
+      --np=$np --sample_nums=$sample_nums --suffix_label=$suffix_label \
       --log_geneval=$log_geneval --tracker_pattern=$tracker_pattern \
       --tracker_project_name=$tracker_project_name
 EOF
   echo $cmd
-  bash -c "${cmd}"
+  if ! bash -c "${cmd}"; then
+    echo "GenEval scoring failed." >&2
+    exit 1
+  fi
 fi
 
 # ============ 3. start of cleanup block  =================

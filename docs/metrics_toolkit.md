@@ -7,12 +7,11 @@ This ToolKit will automatically inference your model and log the metrics results
 - [x] [DPG-Bench](https://github.com/TencentQQGYLab/ELLA)
 - [x] [ImageReward](https://github.com/THUDM/ImageReward/tree/main)
 
-### 0. Install corresponding env for GenEval and DPG-Bench
+### 0. Install metric dependencies
 
-Make sure you can activate the following envs:
-
-- `conda activate geneval`([GenEval](https://github.com/djghosh13/geneval))
-- `conda activate dpg`([DGB-Bench](https://github.com/TencentQQGYLab/ELLA))
+The GenEval launcher uses the currently active Python environment. Install the
+[GenEval](https://github.com/djghosh13/geneval) dependencies there. The DPG-Bench
+launcher still expects its separate `dpg` environment.
 
 ### 0.1 Prepare data.
 
@@ -68,6 +67,21 @@ bash $geneval_launch \
     configs/sana_config/1024ms/Sana_1600M_img1024.yaml \
     output/Sana_1600M_1024px/checkpoints/Sana_1600M_1024px.pth
 ```
+
+To reproduce the SANA-600M 1024px GenEval result with one GPU:
+
+```bash
+bash scripts/bash_run_inference_metric_geneval.sh \
+    configs/sana_config/1024ms/Sana_600M_img1024.yaml \
+    hf://Efficient-Large-Model/Sana_600M_1024px/checkpoints/Sana_600M_1024px_MultiLing.pth \
+    --np=1 \
+    --step=20 \
+    --sample_nums=553 \
+    --log_geneval=false
+```
+
+`--np` sets the number of GPUs used for image generation. GenEval scoring runs
+after generation completes.
 
 ### 2. [Inference and Metric] a list of .pth files using a txt file
 
