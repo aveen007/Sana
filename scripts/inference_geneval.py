@@ -23,6 +23,7 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from typing import List, Optional
+from urllib.request import urlopen
 
 import datasets
 import numpy as np
@@ -70,15 +71,22 @@ _HOMEPAGE = "https://github.com/djghosh13/geneval"
 
 _LICENSE = "MIT License (https://github.com/djghosh13/geneval/blob/main/LICENSE)"
 
-DATA_URL = os.getenv(
-    "GENEVAL_DATA_URL", "https://raw.githubusercontent.com/djghosh13/geneval/main/prompts/evaluation_metadata.jsonl"
+DEFAULT_GENEVAL_METADATA = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "tools", "metrics", "geneval", "prompts", "evaluation_metadata.jsonl")
 )
+DATA_URL = os.getenv("GENEVAL_DATA_URL", DEFAULT_GENEVAL_METADATA)
 
 
 def load_jsonl(file_path: str):
     data = []
-    with open(file_path) as file:
+    if file_path.startswith(("http://", "https://")):
+        file = urlopen(file_path)
+    else:
+        file = open(file_path, encoding="utf-8")
+    with file:
         for line in file:
+            if isinstance(line, bytes):
+                line = line.decode("utf-8")
             data.append(json.loads(line))
     return data
 
@@ -455,11 +463,17 @@ if __name__ == "__main__":
 
     # save path
     if args.output_dir is None:
-        work_dir = (
-            f"/{os.path.join(*args.model_path.split('/')[:-2])}"
-            if args.model_path.startswith("/")
-            else os.path.join(*args.model_path.split("/")[:-2])
-        )
+        if args.model_path.startswith("hf://"):
+            model_path_parts = args.model_path.removeprefix("hf://").split("/")
+            if len(model_path_parts) < 2:
+                raise ValueError(f"Invalid Hugging Face model path: {args.model_path}")
+            work_dir = os.path.join("output", model_path_parts[1])
+        else:
+            work_dir = (
+                f"/{os.path.join(*args.model_path.split('/')[:-2])}"
+                if args.model_path.startswith("/")
+                else os.path.join(*args.model_path.split("/")[:-2])
+            )
         img_save_dir = os.path.join(str(work_dir), "vis")
 
         os.umask(0o000)
@@ -471,10 +485,12 @@ if __name__ == "__main__":
         os.umask(0o000)
         os.makedirs(work_dir, exist_ok=True)
 
-    # dataset
-    metadatas = datasets.load_dataset(
-        "scripts/inference_geneval.py", trust_remote_code=True, split=f"train[{args.start_index}:{args.end_index}]"
-    )
+    # Load the bundled GenEval metadata directly. Recent versions of
+    # Hugging Face datasets no longer execute local dataset scripts.
+    metadatas = load_jsonl(DATA_URL)
+    for index, metadata in enumerate(metadatas):
+        metadata["filename"] = f"{index:04d}"
+    metadatas = metadatas[args.start_index : args.end_index]
     logger.info(f"Eval first {min(args.sample_nums, len(metadatas))}/{len(metadatas)} samples")
 
     # save path
