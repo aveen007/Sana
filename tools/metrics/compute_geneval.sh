@@ -93,7 +93,7 @@ if [ "$geneval" = true ]; then
     cmd="${cmd//\{job_name\}/$job_name}"
     cmd="${cmd//\{gpu_id\}/0}"
     evaluation_failed=0
-    if ! eval CUDA_VISIBLE_DEVICES=0 $cmd >> "${img_path}/${exp_name}_geneval_result.txt" 2>&1; then
+    if ! eval CUDA_VISIBLE_DEVICES=0 $cmd > "${img_path}/${exp_name}_geneval_result.txt" 2>&1; then
       evaluation_failed=1
     fi
     cat "${img_path}/${exp_name}_geneval_result.txt"
@@ -123,7 +123,7 @@ if [ "$geneval" = true ]; then
         cmd="${cmd//\{exp_name\}/$exp_name}"
         cmd="${cmd//\{job_name\}/$job_name}"
         echo "Running on GPU $gpu_id: $cmd"
-        eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd >> "${img_path}/${exp_name}_geneval_result.txt" 2>&1 &
+        eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd > "${img_path}/${exp_name}_geneval_result.txt" 2>&1 &
         pids+=("$!")
 
         gpu_id=$(( (gpu_id + 1) % np ))

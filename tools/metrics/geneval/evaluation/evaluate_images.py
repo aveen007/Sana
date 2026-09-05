@@ -409,9 +409,16 @@ def parse_args():
     args = parser.parse_args()
     args.options = dict(opt.split("=", 1) for opt in args.options)
     if args.model_config is None:
-        args.model_config = os.path.join(
-            os.path.dirname(mmdet.__file__), "../configs/mask2former/mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco.py"
-        )
+        config_name = "mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco.py"
+        mmdet_dir = os.path.dirname(mmdet.__file__)
+        config_candidates = [
+            os.path.join(mmdet_dir, "..", "configs", "mask2former", config_name),
+            os.path.join(mmdet_dir, ".mim", "configs", "mask2former", config_name),
+        ]
+        args.model_config = next((path for path in config_candidates if os.path.isfile(path)), None)
+        if args.model_config is None:
+            checked_paths = "\n".join(os.path.abspath(path) for path in config_candidates)
+            raise FileNotFoundError(f"Could not find the MMDetection Mask2Former config. Checked:\n{checked_paths}")
     return args
 
 
