@@ -109,7 +109,10 @@ def color_classification(image, bboxes, classname):
             DEVICE,
         )
     clf = COLOR_CLASSIFIERS[classname]
-    dataloader = torch.utils.data.DataLoader(ImageCrops(image, bboxes), batch_size=16, num_workers=4)
+    # Forking workers after the detector and CLIP have initialized CUDA can
+    # abort in containerized environments. This preprocessing workload is
+    # small, so keep it in the scoring process.
+    dataloader = torch.utils.data.DataLoader(ImageCrops(image, bboxes), batch_size=16, num_workers=0)
     with torch.no_grad():
         pred, _ = zsc.run_classification(clip_model, clf, dataloader, DEVICE)
         return [COLORS[index.item()] for index in pred.argmax(1)]
