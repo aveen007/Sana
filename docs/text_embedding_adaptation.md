@@ -93,3 +93,22 @@ with shape `[batch, 300, 2304]` for the Sana-0.6B configuration.
 In the notebook, encode the prompts from the three JSONL manifests in their
 stored order. Fit only on `fit`, choose projection settings using `validation`,
 and report GenEval only once on `official_eval`.
+
+## calculatingW-compatible file
+
+The Safetensors files are the resumable raw token-state export. After a token
+export completes, convert them to the single PyTorch dictionary used by the
+existing `calculatingW` notebooks:
+
+```bash
+python tools/pack_sana_projection_embeddings.py \
+  --input-dir output/text_embeddings/sana \
+  --output output/text_embeddings/sana_projection_embeddings.pt
+```
+
+The resulting `sana_projection_embeddings.pt` has the familiar `class_names`
+and `embeddings` keys for the 10,000 fit prompts. It also contains
+`validation_embeddings` and `official_eval_embeddings` with their corresponding
+names and IDs. The matrices are float32 with shape `[prompt_count, 2304]` and
+are produced by mean-pooling only the original prompt tokens, excluding SANA's
+fixed CHI prefix, padding, and special tokens.
