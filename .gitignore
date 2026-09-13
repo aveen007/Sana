@@ -23,6 +23,7 @@ ldm_ae*
 vis/*
 *.pth
 *.pt
+!sana_projected_official_embeddings.pt
 .gradio/
 *.db
 *.bin

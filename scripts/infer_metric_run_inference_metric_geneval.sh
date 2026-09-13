@@ -8,6 +8,7 @@ default_step=20                             # inference step for diffusion model
 default_sample_nums=553                   # inference first $sample_nums sample in list(json.keys())
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
+default_projected_text_embeddings=''
 default_log_geneval=false
 default_np=8
 
@@ -53,6 +54,10 @@ do
         ;;
         --add_label=*)
         add_label="${arg#*=}"
+        shift
+        ;;
+        --projected_text_embeddings=*)
+        projected_text_embeddings="${arg#*=}"
         shift
         ;;
         --log_geneval=*)
@@ -118,8 +123,14 @@ sample_nums=${sample_nums:-$default_sample_nums}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
 exist_time_prefix=${exist_time_prefix:-$default_exist_time_prefix}
 add_label=${add_label:-$default_add_label}
+projected_text_embeddings=${projected_text_embeddings:-$default_projected_text_embeddings}
 ablation_key=${ablation_key:-''}
 ablation_selections=${ablation_selections:-''}
+
+projected_text_args=''
+if [ -n "$projected_text_embeddings" ]; then
+  projected_text_args="--projected_text_embeddings=$projected_text_embeddings"
+fi
 
 suffix_label=${suffix_label:-$default_suffix_label}
 tracker_pattern=${tracker_pattern:-"epoch_step"}
@@ -156,6 +167,7 @@ if [ "$inference" = true ]; then
   read -r -d '' cmd <<EOF
 bash scripts/infer_run_inference_geneval.sh $config_file $model_paths_file \
       --np=$np --inference_script=$inference_script --step=$step --sample_nums=$sample_nums --add_label=$add_label \
+      $projected_text_args \
       --cfg_scale=$cfg_scale \
       --exist_time_prefix=$exist_time_prefix --if_save_dirname=true --sampling_algo=$sampling_algo \
       --ablation_key=$ablation_key --ablation_selections="$ablation_selections"

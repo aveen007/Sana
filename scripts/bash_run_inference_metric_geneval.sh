@@ -15,6 +15,7 @@ default_step=20
 default_sample_nums=553
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
+default_projected_text_embeddings=''
 default_np=8
 
 default_suffix_label='30K_bs50_Flow_DPM20'  # suffix of the line chart on wandb
@@ -52,6 +53,10 @@ do
         ;;
         --add_label=*)
         add_label="${arg#*=}"
+        shift
+        ;;
+        --projected_text_embeddings=*)
+        projected_text_embeddings="${arg#*=}"
         shift
         ;;
         --log_geneval=*)
@@ -114,8 +119,14 @@ sample_nums=${sample_nums:-$default_sample_nums}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
 exist_time_prefix=${exist_time_prefix:-$default_exist_time_prefix}
 add_label=${add_label:-$default_add_label}
+projected_text_embeddings=${projected_text_embeddings:-$default_projected_text_embeddings}
 ablation_key=${ablation_key:-''}
 ablation_selections=${ablation_selections:-''}
+
+projected_text_args=''
+if [ -n "$projected_text_embeddings" ]; then
+  projected_text_args="--projected_text_embeddings=$projected_text_embeddings"
+fi
 
 suffix_label=${suffix_label:-$default_suffix_label}
 tracker_pattern=${tracker_pattern:-"epoch_step"}
@@ -131,6 +142,7 @@ bash scripts/infer_metric_run_inference_metric_geneval.sh $config_file $model_pa
       --step=$step --sample_nums=$sample_nums \
       --exist_time_prefix=$exist_time_prefix --cfg_scale=$cfg_scale \
       --suffix_label=$suffix_label --add_label=$add_label \
+      $projected_text_args \
       --log_geneval=$log_geneval \
       --output_dir=$output_dir --auto_ckpt=$auto_ckpt --sampling_algo=$sampling_algo \
       --auto_ckpt_interval=$auto_ckpt_interval --tracker_pattern=$tracker_pattern \

@@ -10,6 +10,7 @@ default_step=20   # 14
 default_sample_nums=553
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
+default_projected_text_embeddings=''
 default_img_nums_per_sample=4
 default_batch_size=1
 
@@ -48,6 +49,10 @@ do
         add_label="${arg#*=}"
         shift
         ;;
+        --projected_text_embeddings=*)
+        projected_text_embeddings="${arg#*=}"
+        shift
+        ;;
         --model_path=*)
         model_paths="${arg#*=}"
         shift
@@ -79,6 +84,7 @@ sampling_algo=${sampling_algo:-$default_sampling_algo}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
 add_label=${add_label:-$default_add_label}
+projected_text_embeddings=${projected_text_embeddings:-$default_projected_text_embeddings}
 ablation_key=${ablation_key:-''}
 ablation_selections=${ablation_selections:-''}
 img_nums_per_sample=${img_nums_per_sample:-$default_img_nums_per_sample}
@@ -117,6 +123,10 @@ cmd_template="DPM_TQDM=True python scripts/inference_geneval.py --config={config
     --batch_size $batch_size --gpu_id {gpu_id} --start_index {start_index} --end_index {end_index}"
 if [ -n "${add_label}" ]; then
     cmd_template="${cmd_template} --add_label ${add_label}"
+fi
+
+if [ -n "${projected_text_embeddings}" ]; then
+    cmd_template="${cmd_template} --projected_text_embeddings ${projected_text_embeddings}"
 fi
 
 if [ -n "${output_dir}" ]; then

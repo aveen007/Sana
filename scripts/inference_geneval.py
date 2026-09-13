@@ -15,6 +15,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -75,6 +76,42 @@ DEFAULT_GENEVAL_METADATA = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "tools", "metrics", "geneval", "prompts", "evaluation_metadata.jsonl")
 )
 DATA_URL = os.getenv("GENEVAL_DATA_URL", DEFAULT_GENEVAL_METADATA)
+
+
+def load_projected_text_embeddings(
+    file_path: str, prompt_texts: list[str], expected_hidden_dim: int
+) -> torch.Tensor:
+    """Load pooled projected vectors and verify that they match GenEval exactly."""
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Projected text embedding file does not exist: {file_path}")
+
+    bundle = torch.load(file_path, map_location="cpu", weights_only=True)
+    if not isinstance(bundle, dict):
+        raise TypeError("Projected text embedding file must contain a dictionary")
+    if "Y_pred" not in bundle:
+        raise KeyError("Projected text embedding file has no 'Y_pred' tensor")
+
+    embeddings = bundle["Y_pred"]
+    if not isinstance(embeddings, torch.Tensor) or embeddings.ndim != 2:
+        raise ValueError("'Y_pred' must be a [prompt_count, hidden_dim] tensor")
+    if embeddings.shape != (len(prompt_texts), expected_hidden_dim):
+        raise ValueError(
+            f"Expected projected embeddings with shape ({len(prompt_texts)}, {expected_hidden_dim}), "
+            f"got {tuple(embeddings.shape)}"
+        )
+    if not bool(torch.isfinite(embeddings).all()):
+        raise ValueError("Projected text embeddings contain NaN or infinite values")
+
+    saved_prompts = bundle.get("prompt_texts")
+    if saved_prompts is None or list(saved_prompts) != prompt_texts:
+        raise ValueError("Projected embedding prompts do not exactly match the official GenEval prompt order")
+
+    expected_ids = [hashlib.sha256(prompt.encode("utf-8")).hexdigest() for prompt in prompt_texts]
+    saved_ids = bundle.get("ids")
+    if saved_ids is None or list(saved_ids) != expected_ids:
+        raise ValueError("Projected embedding IDs do not match the official GenEval prompts")
+
+    return embeddings.float().contiguous()
 
 
 def load_jsonl(file_path: str):
@@ -234,10 +271,21 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                 select_index = [0] + list(
                     range(-config.text_encoder.model_max_length + 1, 0)
                 )  # First BOS token and the last N - 1 tokens
-                caption_embs = text_encoder(caption_token.input_ids, caption_token.attention_mask)[0][:, None][
-                    :, :, select_index
-                ]
                 emb_masks = caption_token.attention_mask[:, select_index]
+                if projected_text_embeddings is None:
+                    caption_embs = text_encoder(caption_token.input_ids, caption_token.attention_mask)[0][:, None][
+                        :, :, select_index
+                    ]
+                else:
+                    # The projection produces one pooled vector per prompt. Repeat it
+                    # over SANA's context length while preserving the normal prompt
+                    # mask, including the mask used by the unconditional CFG branch.
+                    projected_row = projected_text_embeddings[index].to(
+                        device=device, dtype=null_caption_embs.dtype
+                    )
+                    caption_embs = projected_row.view(1, 1, 1, -1).repeat(
+                        len(prompts), 1, emb_masks.shape[1], 1
+                    )
                 null_y = null_caption_embs.repeat(len(prompts), 1, 1)[:, None]
 
                 # start sampling
@@ -371,6 +419,10 @@ class SanaInference(SanaConfig):
     seed: int = 0
     step: int = -1
     add_label: str = ""
+    projected_text_embeddings: Optional[str] = field(
+        default=None,
+        metadata={"help": "A .pt bundle containing official GenEval projected vectors in Y_pred"},
+    )
     tar_and_del: bool = field(default=False, metadata={"help": "if tar and del the saved dir"})
     exist_time_prefix: str = ""
     gpu_id: int = 0
@@ -490,6 +542,22 @@ if __name__ == "__main__":
     metadatas = load_jsonl(DATA_URL)
     for index, metadata in enumerate(metadatas):
         metadata["filename"] = f"{index:04d}"
+    projected_text_embeddings = None
+    if args.projected_text_embeddings:
+        if not DATA_URL.endswith("evaluation_metadata.jsonl"):
+            raise ValueError("Projected text embeddings can only be used with the official GenEval metadata")
+        projected_text_embeddings = load_projected_text_embeddings(
+            args.projected_text_embeddings,
+            [metadata["prompt"] for metadata in metadatas],
+            null_caption_embs.shape[-1],
+        )
+        if not args.add_label:
+            args.add_label = "_projected_pooled_repeat"
+        logger.info(
+            "Loaded %d projected pooled prompt vectors from %s; conditioning mode: repeat with original mask",
+            len(projected_text_embeddings),
+            args.projected_text_embeddings,
+        )
     metadatas = metadatas[args.start_index : args.end_index]
     logger.info(f"Eval first {min(args.sample_nums, len(metadatas))}/{len(metadatas)} samples")
 
