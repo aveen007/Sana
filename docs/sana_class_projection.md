@@ -47,28 +47,43 @@ python tools/extract_sana_class_prototypes.py \
 ```
 
 Increase `--batch-size` only if GPU memory allows it. `--resume` validates and
-keeps completed shards after an interrupted run.
+keeps completed shards after an interrupted run. When extraction succeeds,
+the shards are packed, reopened for verification, and removed automatically.
+Use `--keep-shards` only when the intermediate files are needed for debugging.
+
+If an older run already completed all shards, consolidate it without loading
+Gemma or recomputing embeddings:
+
+```bash
+python tools/extract_sana_class_prototypes.py \
+  --class-spec output/text_embeddings/sana_class_projection/spec_5templates/class_set.json \
+  --output-dir output/text_embeddings/sana_class_projection/sana_5templates \
+  --class-shard-size 16 \
+  --eval-shard-size 32 \
+  --pack-only
+```
 
 ## Outputs
 
-`sana_class_prototypes.pt` contains:
+`sana_class_embeddings.pt` is the calculation file to download and contains:
 
 - `class_names`: exactly 3,000 calculation classes;
 - `templates`: the exact template strings and ordering;
 - `embeddings`: `[3000, 2304]` natural-scale class prototypes;
-- `unit_embeddings`: `[3000, 2304]` normalized prototypes;
-- `mean_norms`: the average native SANA class-token norm per class.
+- `class_spec`: the complete shared class/template/exclusion specification.
 
-The `official-eval-*.safetensors` shards contain untouched native SANA data:
+`projection_class_set.json` is a standalone copy of that same specification.
+Upload either it or `sana_class_embeddings.pt` to Kaggle; the VLM extractor
+must read `class_names` and `templates` from it instead of rebuilding them.
 
-- `hidden_states`: `[shard_rows, 300, 2304]`;
-- `attention_mask`: `[shard_rows, 300]`;
-- `input_ids`: `[shard_rows, 300]`;
-- `offset_mapping`: `[shard_rows, 300, 2]`;
-- `row_indices`: positions in the official 553-prompt benchmark.
+`sana_official_geneval_embeddings.pt` contains untouched native SANA data:
 
-The shared `class_set.json` must also be used when extracting LLaVA class
-prototypes so both encoders see the same classes, templates, and ordering.
+- `embeddings`: `[553, 300, 2304]`;
+- `attention_mask`: `[553, 300]`;
+- `prompt_texts` and `ids`: the exact official prompt order and hashes;
+- `metadata`: the complete official GenEval rows.
+
+The packed files and their SHA-256 hashes are recorded in `manifest.json`.
 
 ## Projected GenEval bundle
 

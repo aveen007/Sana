@@ -11,6 +11,7 @@ sequence and are never included in the class prototypes.
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import os
@@ -67,6 +68,16 @@ def parse_args() -> argparse.Namespace:
         default=True,
     )
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--pack-only",
+        action="store_true",
+        help="Pack and verify already completed shards without loading the text encoder.",
+    )
+    parser.add_argument(
+        "--keep-shards",
+        action="store_true",
+        help="Keep intermediate Safetensors shards after verified .pt files are written.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     for name in ("batch_size", "class_shard_size", "eval_shard_size"):
@@ -255,6 +266,53 @@ def save_tensor_shard(path: Path, payload: dict[str, torch.Tensor], metadata: di
     os.replace(temporary, path)
 
 
+def expected_shard_names(prefix: str, row_count: int, shard_size: int) -> list[str]:
+    return [
+        f"{prefix}-{start:06d}-{min(start + shard_size, row_count):06d}.safetensors"
+        for start in range(0, row_count, shard_size)
+    ]
+
+
+def atomic_torch_save(path: Path, payload: dict[str, Any]) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.unlink(missing_ok=True)
+    torch.save(payload, temporary)
+    os.replace(temporary, path)
+
+
+def load_pt_bundle(path: Path) -> dict[str, Any]:
+    try:
+        return torch.load(path, map_location="cpu", weights_only=False, mmap=True)
+    except TypeError:
+        return torch.load(path, map_location="cpu", weights_only=False)
+
+
+def verify_class_bundle(path: Path, class_count: int) -> None:
+    bundle = load_pt_bundle(path)
+    embeddings = bundle.get("embeddings")
+    if bundle.get("kind") != "sana_class_embeddings":
+        raise ValueError(f"Unexpected packed class kind in {path}")
+    if not isinstance(embeddings, torch.Tensor) or embeddings.ndim != 2 or embeddings.shape[0] != class_count:
+        raise ValueError(f"Unexpected packed class embedding shape in {path}")
+    if len(bundle.get("class_names", [])) != class_count:
+        raise ValueError(f"Unexpected packed class-name count in {path}")
+
+
+def verify_official_eval_bundle(path: Path, row_count: int, model_max_length: int) -> None:
+    bundle = load_pt_bundle(path)
+    embeddings = bundle.get("embeddings")
+    attention_mask = bundle.get("attention_mask")
+    if bundle.get("kind") != "sana_official_geneval_embeddings":
+        raise ValueError(f"Unexpected packed official-eval kind in {path}")
+    expected_prefix = (row_count, model_max_length)
+    if not isinstance(embeddings, torch.Tensor) or embeddings.ndim != 3 or embeddings.shape[:2] != expected_prefix:
+        raise ValueError(f"Unexpected official-eval embedding shape in {path}")
+    if not isinstance(attention_mask, torch.Tensor) or tuple(attention_mask.shape) != expected_prefix:
+        raise ValueError(f"Unexpected official-eval attention-mask shape in {path}")
+    if len(bundle.get("prompt_texts", [])) != row_count:
+        raise ValueError(f"Unexpected official-eval prompt count in {path}")
+
+
 def export_class_prototypes(
     class_names: list[str],
     templates: list[str],
@@ -344,40 +402,53 @@ def export_class_prototypes(
 
 
 def pack_class_prototypes(
-    class_names: list[str], templates: list[str], shard_names: list[str], output_dir: Path, settings: dict[str, Any]
+    spec: dict[str, Any],
+    class_names: list[str],
+    templates: list[str],
+    shard_names: list[str],
+    output_dir: Path,
+    settings: dict[str, Any],
 ) -> str:
-    parts: dict[str, list[torch.Tensor]] = {"embeddings": [], "unit_embeddings": [], "mean_norms": []}
+    parts: list[torch.Tensor] = []
     expected_index = 0
     for shard_name in shard_names:
-        shard = load_file(str(output_dir / shard_name), device="cpu")
+        shard_path = output_dir / shard_name
+        if not shard_path.is_file():
+            raise FileNotFoundError(f"Missing class shard: {shard_path}")
+        shard = load_file(str(shard_path), device="cpu")
         indices = shard["row_indices"].long()
         expected = torch.arange(expected_index, expected_index + len(indices))
         if not torch.equal(indices, expected):
             raise ValueError(f"Unexpected class ordering in {shard_name}")
-        for key in parts:
-            parts[key].append(shard[key])
+        parts.append(shard["embeddings"])
         expected_index += len(indices)
     if expected_index != len(class_names):
         raise ValueError(f"Packed {expected_index} class rows; expected {len(class_names)}")
 
     bundle = {
-        "kind": "sana_class_prototypes",
+        "format_version": 2,
+        "kind": "sana_class_embeddings",
         "model_id": settings["model_id"],
         "representation": "last_hidden_state_class_token_span_normalized_template_mean",
         "class_names": class_names,
         "templates": templates,
-        "embeddings": torch.cat(parts["embeddings"]).float(),
-        "unit_embeddings": torch.cat(parts["unit_embeddings"]).float(),
-        "mean_norms": torch.cat(parts["mean_norms"]).float(),
+        # This is the familiar projection input structure: one row per class.
+        "embeddings": torch.cat(parts).float(),
+        # Keep the complete source definition in the same downloadable file so
+        # Kaggle can reproduce the identical classes and prompt templates.
+        "class_spec": spec,
         "model_max_length": settings["model_max_length"],
+        "chi_prompt": settings["chi_prompt"],
     }
-    output_name = "sana_class_prototypes.pt"
+    output_name = "sana_class_embeddings.pt"
     output_path = output_dir / output_name
-    temporary = output_path.with_suffix(".pt.tmp")
-    torch.save(bundle, temporary)
-    os.replace(temporary, output_path)
+    atomic_torch_save(output_path, bundle)
+    shape = tuple(bundle["embeddings"].shape)
+    del bundle
+    gc.collect()
+    verify_class_bundle(output_path, len(class_names))
     print(f"Packed class prototype file: {output_path}")
-    print(f"Class embedding shape: {tuple(bundle['embeddings'].shape)}")
+    print(f"Class embedding shape: {shape}")
     return output_name
 
 
@@ -459,6 +530,90 @@ def export_official_eval(
     return shard_names
 
 
+def pack_official_eval(
+    rows: list[dict[str, Any]],
+    shard_names: list[str],
+    output_dir: Path,
+    settings: dict[str, Any],
+) -> str:
+    if not shard_names:
+        raise ValueError("No official-eval shards were provided")
+
+    first_path = output_dir / shard_names[0]
+    if not first_path.is_file():
+        raise FileNotFoundError(f"Missing official-eval shard: {first_path}")
+    first = load_file(str(first_path), device="cpu")
+    first_hidden = first["hidden_states"]
+    model_max_length = settings["model_max_length"]
+    if first_hidden.ndim != 3 or first_hidden.shape[1] != model_max_length:
+        raise ValueError(f"Unexpected hidden-state shape in {first_path}")
+
+    embeddings = torch.empty(
+        len(rows),
+        model_max_length,
+        first_hidden.shape[-1],
+        dtype=first_hidden.dtype,
+    )
+    attention_mask = torch.empty(len(rows), model_max_length, dtype=torch.uint8)
+    expected_index = 0
+    del first, first_hidden
+
+    for shard_name in shard_names:
+        shard_path = output_dir / shard_name
+        if not shard_path.is_file():
+            raise FileNotFoundError(f"Missing official-eval shard: {shard_path}")
+        shard = load_file(str(shard_path), device="cpu")
+        indices = shard["row_indices"].long()
+        expected = torch.arange(expected_index, expected_index + len(indices))
+        if not torch.equal(indices, expected):
+            raise ValueError(f"Unexpected official-eval ordering in {shard_name}")
+        end = expected_index + len(indices)
+        embeddings[expected_index:end].copy_(shard["hidden_states"])
+        attention_mask[expected_index:end].copy_(shard["attention_mask"])
+        expected_index = end
+    if expected_index != len(rows):
+        raise ValueError(f"Packed {expected_index} official prompts; expected {len(rows)}")
+
+    prompt_texts = [row["prompt"] for row in rows]
+    bundle = {
+        "format_version": 2,
+        "kind": "sana_official_geneval_embeddings",
+        "model_id": settings["model_id"],
+        "representation": "native_sana_last_hidden_state_sequence",
+        "prompt_texts": prompt_texts,
+        "ids": [hashlib.sha256(prompt.encode("utf-8")).hexdigest() for prompt in prompt_texts],
+        "metadata": rows,
+        "embeddings": embeddings,
+        "attention_mask": attention_mask,
+        "model_max_length": model_max_length,
+        "chi_prompt": settings["chi_prompt"],
+    }
+    output_name = "sana_official_geneval_embeddings.pt"
+    output_path = output_dir / output_name
+    atomic_torch_save(output_path, bundle)
+    shape = tuple(embeddings.shape)
+    del bundle, embeddings, attention_mask
+    gc.collect()
+    verify_official_eval_bundle(output_path, len(rows), model_max_length)
+    print(f"Packed official GenEval file: {output_path}")
+    print(f"Official GenEval embedding shape: {shape}")
+    return output_name
+
+
+def remove_intermediate_shards(output_dir: Path, shard_names: list[str]) -> None:
+    removed = 0
+    for shard_name in shard_names:
+        shard_path = output_dir / shard_name
+        if shard_path.is_file():
+            shard_path.unlink()
+            removed += 1
+    legacy_class_bundle = output_dir / "sana_class_prototypes.pt"
+    if legacy_class_bundle.is_file():
+        legacy_class_bundle.unlink()
+        removed += 1
+    print(f"Removed {removed} verified intermediate/legacy files")
+
+
 def main() -> None:
     args = parse_args()
     spec = read_json(args.class_spec)
@@ -479,12 +634,14 @@ def main() -> None:
     )
     if args.dry_run:
         return
-    if args.device.startswith("cuda") and not torch.cuda.is_available():
-        raise RuntimeError("CUDA was requested but torch.cuda.is_available() is false")
 
     output_dir = args.output_dir.resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    if any(output_dir.iterdir()) and not args.resume:
+    if args.pack_only:
+        if not output_dir.is_dir():
+            raise FileNotFoundError(f"Cannot pack missing output directory: {output_dir}")
+    else:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    if any(output_dir.iterdir()) and not (args.resume or args.pack_only):
         raise FileExistsError(f"Output directory is not empty: {output_dir}; pass --resume or use a new directory")
 
     run_config = {
@@ -506,41 +663,97 @@ def main() -> None:
         "eval_shard_size": args.eval_shard_size,
     }
     run_config_path = output_dir / "manifest.json"
-    if args.resume and run_config_path.exists():
+    previous_config = None
+    if (args.resume or args.pack_only) and run_config_path.exists():
         previous_config = read_json(run_config_path)
         mismatched = [key for key, value in run_config.items() if previous_config.get(key) != value]
         if mismatched:
             raise ValueError(f"Existing manifest.json does not match this invocation: {mismatched}")
+    elif args.pack_only:
+        raise FileNotFoundError(f"Cannot pack without the extraction manifest: {run_config_path}")
     else:
         atomic_write_json(run_config_path, run_config)
 
-    print(f"Loading {settings['model_id']} in bfloat16 on {args.device}")
-    tokenizer = AutoTokenizer.from_pretrained(settings["model_id"])
-    if not tokenizer.is_fast:
-        raise RuntimeError("A fast tokenizer is required for class-span and benchmark offset mappings")
-    tokenizer.padding_side = "right"
-    text_encoder = (
-        AutoModelForCausalLM.from_pretrained(settings["model_id"], torch_dtype=torch.bfloat16)
-        .get_decoder()
-        .to(args.device)
-        .eval()
+    class_shards = expected_shard_names("classes", len(class_names), args.class_shard_size)
+    eval_shards = (
+        expected_shard_names("official-eval", len(eval_rows), args.eval_shard_size)
+        if args.include_official_eval
+        else []
     )
-    text_encoder.requires_grad_(False)
 
-    class_shards = export_class_prototypes(
-        class_names, templates, output_dir, tokenizer, text_encoder, settings, args
-    )
-    packed_classes = pack_class_prototypes(class_names, templates, class_shards, output_dir, settings)
+    # This snapshot is the single source of truth for the Kaggle VLM pass.
+    # The same content is also embedded inside sana_class_embeddings.pt.
+    class_spec_snapshot = "projection_class_set.json"
+    atomic_write_json(output_dir / class_spec_snapshot, spec)
+
+    packed_classes_path = output_dir / "sana_class_embeddings.pt"
+    packed_eval_path = output_dir / "sana_official_geneval_embeddings.pt"
+    if previous_config and previous_config.get("complete"):
+        verify_class_bundle(packed_classes_path, len(class_names))
+        if args.include_official_eval:
+            verify_official_eval_bundle(packed_eval_path, len(eval_rows), settings["model_max_length"])
+        if not args.keep_shards:
+            remove_intermediate_shards(output_dir, class_shards + eval_shards)
+        print(f"Export is already complete: {output_dir}")
+        return
+
+    if not args.pack_only:
+        if args.device.startswith("cuda") and not torch.cuda.is_available():
+            raise RuntimeError("CUDA was requested but torch.cuda.is_available() is false")
+        print(f"Loading {settings['model_id']} in bfloat16 on {args.device}")
+        tokenizer = AutoTokenizer.from_pretrained(settings["model_id"])
+        if not tokenizer.is_fast:
+            raise RuntimeError("A fast tokenizer is required for class-span and benchmark offset mappings")
+        tokenizer.padding_side = "right"
+        text_encoder = (
+            AutoModelForCausalLM.from_pretrained(settings["model_id"], torch_dtype=torch.bfloat16)
+            .get_decoder()
+            .to(args.device)
+            .eval()
+        )
+        text_encoder.requires_grad_(False)
+
+        class_shards = export_class_prototypes(
+            class_names, templates, output_dir, tokenizer, text_encoder, settings, args
+        )
+        packed_classes = pack_class_prototypes(
+            spec, class_names, templates, class_shards, output_dir, settings
+        )
+        if args.include_official_eval:
+            eval_shards = export_official_eval(eval_rows, output_dir, tokenizer, text_encoder, settings, args)
+        del text_encoder, tokenizer
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    else:
+        print("Packing completed shards without loading the text encoder")
+        packed_classes = pack_class_prototypes(
+            spec, class_names, templates, class_shards, output_dir, settings
+        )
+
     eval_prompt_manifest = None
-    eval_shards = []
+    packed_eval = None
     if args.include_official_eval:
         eval_prompt_manifest = write_eval_prompt_manifest(output_dir, eval_rows)
-        eval_shards = export_official_eval(eval_rows, output_dir, tokenizer, text_encoder, settings, args)
+        packed_eval = pack_official_eval(eval_rows, eval_shards, output_dir, settings)
 
-    run_config["class_shards"] = class_shards
-    run_config["packed_class_prototypes"] = packed_classes
+    # Only remove exact, generated intermediate paths after both deliverables
+    # have been reopened and shape-verified.
+    if not args.keep_shards:
+        remove_intermediate_shards(output_dir, class_shards + eval_shards)
+
+    run_config["complete"] = True
+    run_config["projection_class_set"] = class_spec_snapshot
+    run_config["packed_class_embeddings"] = packed_classes
+    run_config["packed_class_embeddings_sha256"] = sha256_file(output_dir / packed_classes)
     run_config["official_eval_prompt_manifest"] = eval_prompt_manifest
-    run_config["official_eval_shards"] = eval_shards
+    run_config["packed_official_eval_embeddings"] = packed_eval
+    run_config["packed_official_eval_embeddings_sha256"] = (
+        sha256_file(output_dir / packed_eval) if packed_eval else None
+    )
+    run_config["intermediate_shards_retained"] = args.keep_shards
+    run_config["intermediate_class_shard_count"] = len(class_shards)
+    run_config["intermediate_official_eval_shard_count"] = len(eval_shards)
     atomic_write_json(run_config_path, run_config)
     print(f"Completed export: {output_dir}")
 
