@@ -79,9 +79,12 @@ DATA_URL = os.getenv("GENEVAL_DATA_URL", DEFAULT_GENEVAL_METADATA)
 
 
 def load_projected_text_embeddings(
-    file_path: str, prompt_texts: list[str], expected_hidden_dim: int
-) -> torch.Tensor:
-    """Load pooled projected vectors and verify that they match GenEval exactly."""
+    file_path: str,
+    prompt_texts: list[str],
+    expected_sequence_length: int,
+    expected_hidden_dim: int,
+) -> tuple[torch.Tensor, Optional[torch.Tensor], str]:
+    """Load projected pooled or native-sequence conditioning for GenEval."""
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Projected text embedding file does not exist: {file_path}")
 
@@ -92,11 +95,36 @@ def load_projected_text_embeddings(
         raise KeyError("Projected text embedding file has no 'Y_pred' tensor")
 
     embeddings = bundle["Y_pred"]
-    if not isinstance(embeddings, torch.Tensor) or embeddings.ndim != 2:
-        raise ValueError("'Y_pred' must be a [prompt_count, hidden_dim] tensor")
-    if embeddings.shape != (len(prompt_texts), expected_hidden_dim):
+    if not isinstance(embeddings, torch.Tensor):
+        raise ValueError("'Y_pred' must be a tensor")
+    if embeddings.ndim == 4 and embeddings.shape[1] == 1:
+        embeddings = embeddings.squeeze(1)
+
+    if embeddings.ndim == 2:
+        expected_shape = (len(prompt_texts), expected_hidden_dim)
+        mode = "pooled_repeat"
+        attention_mask = None
+    elif embeddings.ndim == 3:
+        expected_shape = (len(prompt_texts), expected_sequence_length, expected_hidden_dim)
+        mode = "native_sequence"
+        attention_mask = bundle.get("attention_mask", bundle.get("attention_masks"))
+        if not isinstance(attention_mask, torch.Tensor):
+            raise KeyError("Native projected conditioning requires an 'attention_mask' tensor")
+        if attention_mask.shape != (len(prompt_texts), expected_sequence_length):
+            raise ValueError(
+                "Expected projected attention mask with shape "
+                f"({len(prompt_texts)}, {expected_sequence_length}), got {tuple(attention_mask.shape)}"
+            )
+        attention_mask = attention_mask.to(dtype=torch.uint8).contiguous()
+    else:
         raise ValueError(
-            f"Expected projected embeddings with shape ({len(prompt_texts)}, {expected_hidden_dim}), "
+            "'Y_pred' must have shape [prompt_count, hidden_dim], "
+            "[prompt_count, sequence_length, hidden_dim], or "
+            "[prompt_count, 1, sequence_length, hidden_dim]"
+        )
+    if embeddings.shape != expected_shape:
+        raise ValueError(
+            f"Expected projected embeddings with shape {expected_shape}, "
             f"got {tuple(embeddings.shape)}"
         )
     if not bool(torch.isfinite(embeddings).all()):
@@ -111,7 +139,7 @@ def load_projected_text_embeddings(
     if saved_ids is None or list(saved_ids) != expected_ids:
         raise ValueError("Projected embedding IDs do not match the official GenEval prompts")
 
-    return embeddings.float().contiguous()
+    return embeddings.float().contiguous(), attention_mask, mode
 
 
 def load_jsonl(file_path: str):
@@ -276,7 +304,7 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                     caption_embs = text_encoder(caption_token.input_ids, caption_token.attention_mask)[0][:, None][
                         :, :, select_index
                     ]
-                else:
+                elif projected_text_mode == "pooled_repeat":
                     # The projection produces one pooled vector per prompt. Repeat it
                     # over SANA's context length while preserving the normal prompt
                     # mask, including the mask used by the unconditional CFG branch.
@@ -285,6 +313,16 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                     )
                     caption_embs = projected_row.view(1, 1, 1, -1).repeat(
                         len(prompts), 1, emb_masks.shape[1], 1
+                    )
+                else:
+                    projected_row = projected_text_embeddings[index].to(
+                        device=device, dtype=null_caption_embs.dtype
+                    )
+                    caption_embs = projected_row.view(1, 1, projected_row.shape[0], -1).repeat(
+                        len(prompts), 1, 1, 1
+                    )
+                    emb_masks = projected_text_attention_masks[index].to(device=device).view(1, -1).repeat(
+                        len(prompts), 1
                     )
                 null_y = null_caption_embs.repeat(len(prompts), 1, 1)[:, None]
 
@@ -543,20 +581,24 @@ if __name__ == "__main__":
     for index, metadata in enumerate(metadatas):
         metadata["filename"] = f"{index:04d}"
     projected_text_embeddings = None
+    projected_text_attention_masks = None
+    projected_text_mode = None
     if args.projected_text_embeddings:
         if not DATA_URL.endswith("evaluation_metadata.jsonl"):
             raise ValueError("Projected text embeddings can only be used with the official GenEval metadata")
-        projected_text_embeddings = load_projected_text_embeddings(
+        projected_text_embeddings, projected_text_attention_masks, projected_text_mode = load_projected_text_embeddings(
             args.projected_text_embeddings,
             [metadata["prompt"] for metadata in metadatas],
+            config.text_encoder.model_max_length,
             null_caption_embs.shape[-1],
         )
         if not args.add_label:
-            args.add_label = "_projected_pooled_repeat"
+            args.add_label = f"_projected_{projected_text_mode}"
         logger.info(
-            "Loaded %d projected pooled prompt vectors from %s; conditioning mode: repeat with original mask",
+            "Loaded %d projected prompt tensors from %s; conditioning mode: %s",
             len(projected_text_embeddings),
             args.projected_text_embeddings,
+            projected_text_mode,
         )
     metadatas = metadatas[args.start_index : args.end_index]
     logger.info(f"Eval first {min(args.sample_nums, len(metadatas))}/{len(metadatas)} samples")
