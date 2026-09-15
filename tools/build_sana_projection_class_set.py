@@ -19,8 +19,9 @@ from pathlib import Path
 from typing import Iterable
 
 
-# Same ordering as OV-DQUO/models/clip/prompts.py.  The OV-DQUO batch used the
-# first 70; --num-templates may select up to all 80.
+# Same ordering as OV-DQUO/models/clip/prompts.py. The original OV-DQUO tools
+# supported both a five-template calculation and a larger 70-template run;
+# --num-templates may select up to all 80.
 IMAGENET_TEMPLATES = [
     "a bad photo of a {}.",
     "a photo of many {}.",
@@ -118,7 +119,7 @@ def parse_args() -> argparse.Namespace:
         help="Optional text file containing candidate classes. Otherwise NLTK WordNet is used.",
     )
     parser.add_argument("--num-classes", type=int, default=3_000)
-    parser.add_argument("--num-templates", type=int, default=70)
+    parser.add_argument("--num-templates", type=int, default=5)
     parser.add_argument(
         "--output-dir",
         type=Path,

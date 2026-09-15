@@ -6,14 +6,18 @@ official GenEval prompt or object label in the projector calculation set.
 ## Data layout
 
 - Calculation dictionary: 3,000 WordNet noun classes by default.
-- Prompt augmentation: the first 70 OV-DQUO/ImageNet templates by default.
+- Prompt augmentation: the first 5 OV-DQUO/ImageNet templates by default. More
+  templates are supported, but increase encoder work linearly.
 - Calculation row: one class prototype, obtained by averaging normalized
   class-token hidden states across its templates.
 - Benchmark: the original 553 GenEval prompts, exported separately and in
   their original order.
 
-The 210,000 templated strings are intermediate encoder inputs. They produce
-3,000 calculation rows; they are not treated as independent classes.
+The 15,000 templated strings are intermediate encoder inputs. They produce
+3,000 calculation rows; they are not treated as independent classes. Class
+prototype extraction dynamically pads each batch rather than evaluating all
+300 output positions. The official benchmark export still uses the exact
+fixed 300-position SANA representation.
 
 ## Server commands
 
@@ -30,13 +34,13 @@ python -m nltk.downloader wordnet omw-1.4
 
 python tools/build_sana_projection_class_set.py \
   --num-classes 3000 \
-  --num-templates 70 \
-  --output-dir output/text_embeddings/sana_class_projection/spec
+  --num-templates 5 \
+  --output-dir output/text_embeddings/sana_class_projection/spec_5templates
 
 python tools/extract_sana_class_prototypes.py \
-  --class-spec output/text_embeddings/sana_class_projection/spec/class_set.json \
-  --output-dir output/text_embeddings/sana_class_projection/sana \
-  --batch-size 4 \
+  --class-spec output/text_embeddings/sana_class_projection/spec_5templates/class_set.json \
+  --output-dir output/text_embeddings/sana_class_projection/sana_5templates \
+  --batch-size 8 \
   --class-shard-size 16 \
   --eval-shard-size 32 \
   --resume

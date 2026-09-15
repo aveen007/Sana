@@ -159,6 +159,7 @@ def selected_conditioning(
     text_encoder,
     settings: dict[str, Any],
     device: torch.device,
+    fixed_length: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     chi_prompt = settings["chi_prompt"]
     conditioned = [chi_prompt + prompt for prompt in prompts] if chi_prompt else prompts
@@ -171,34 +172,38 @@ def selected_conditioning(
     tokens = tokenizer(
         conditioned,
         max_length=tokenizer_max_length,
-        padding="max_length",
+        padding="max_length" if fixed_length else "longest",
         truncation=True,
         return_offsets_mapping=True,
         return_tensors="pt",
     )
     offsets = tokens.pop("offset_mapping")
     tokens = tokens.to(device)
-    select_device = torch.cat(
-        (
-            torch.zeros(1, dtype=torch.long, device=device),
-            torch.arange(
-                tokenizer_max_length - model_max_length + 1,
-                tokenizer_max_length,
-                dtype=torch.long,
-                device=device,
-            ),
-        )
-    )
-    select_cpu = select_device.cpu()
     hidden = text_encoder(
         tokens.input_ids,
         attention_mask=tokens.attention_mask,
         use_cache=False,
         return_dict=True,
-    ).last_hidden_state.index_select(1, select_device)
-    input_ids = tokens.input_ids.index_select(1, select_device)
-    attention_mask = tokens.attention_mask.index_select(1, select_device)
-    offsets = offsets.index_select(1, select_cpu)
+    ).last_hidden_state
+    input_ids = tokens.input_ids
+    attention_mask = tokens.attention_mask
+    if fixed_length:
+        select_device = torch.cat(
+            (
+                torch.zeros(1, dtype=torch.long, device=device),
+                torch.arange(
+                    tokenizer_max_length - model_max_length + 1,
+                    tokenizer_max_length,
+                    dtype=torch.long,
+                    device=device,
+                ),
+            )
+        )
+        select_cpu = select_device.cpu()
+        hidden = hidden.index_select(1, select_device)
+        input_ids = input_ids.index_select(1, select_device)
+        attention_mask = attention_mask.index_select(1, select_device)
+        offsets = offsets.index_select(1, select_cpu)
     return hidden, input_ids, attention_mask, offsets
 
 
@@ -226,8 +231,11 @@ def pool_class_spans(
             raise ValueError(f"No selected token overlaps class character span {spans[row]}")
         masks.append(mask)
     class_mask = torch.stack(masks)
-    weights = class_mask.unsqueeze(-1).to(hidden.dtype)
-    return (hidden * weights).sum(dim=1) / weights.sum(dim=1).clamp_min(1)
+    # Pool in float32 so the class prototypes do not accumulate bfloat16
+    # rounding error; only the saved shards are cast to --output-dtype.
+    weights = class_mask.unsqueeze(-1).float()
+    hidden_float = hidden.float()
+    return (hidden_float * weights).sum(dim=1) / weights.sum(dim=1).clamp_min(1)
 
 
 def valid_shard(path: Path, required: set[str], expected_rows: int) -> bool:
@@ -289,7 +297,12 @@ def export_class_prototypes(
         for batch_start in range(0, len(prompts), args.batch_size):
             batch_end = min(batch_start + args.batch_size, len(prompts))
             hidden, _, attention_mask, offsets = selected_conditioning(
-                prompts[batch_start:batch_end], tokenizer, text_encoder, settings, device
+                prompts[batch_start:batch_end],
+                tokenizer,
+                text_encoder,
+                settings,
+                device,
+                fixed_length=False,
             )
             vectors = pool_class_spans(
                 hidden,
