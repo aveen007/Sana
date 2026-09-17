@@ -97,6 +97,8 @@ def load_projected_text_embeddings(
     embeddings = bundle["Y_pred"]
     if not isinstance(embeddings, torch.Tensor):
         raise ValueError("'Y_pred' must be a tensor")
+    if not embeddings.is_floating_point():
+        raise ValueError("'Y_pred' must use a floating-point dtype")
     if embeddings.ndim == 4 and embeddings.shape[1] == 1:
         embeddings = embeddings.squeeze(1)
 
@@ -139,7 +141,9 @@ def load_projected_text_embeddings(
     if saved_ids is None or list(saved_ids) != expected_ids:
         raise ValueError("Projected embedding IDs do not match the official GenEval prompts")
 
-    return embeddings.float().contiguous(), attention_mask, mode
+    # Keep float16/bfloat16 bundles compact in CPU memory. Each selected row is
+    # cast to SANA's runtime dtype immediately before inference.
+    return embeddings.contiguous(), attention_mask, mode
 
 
 def load_jsonl(file_path: str):

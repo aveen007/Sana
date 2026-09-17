@@ -98,3 +98,30 @@ ids:           SHA-256 identifiers for those prompts
 
 This native-sequence form is passed directly to SANA. It is not pooled and no
 embedding vector is repeated across the 300 positions.
+
+## Build and evaluate the LLaVA-projected GenEval sequence
+
+After fitting `sana_llava_class_kernel_projector.pt`, build the official
+tokenwise conditioning bundle. The builder downloads only the Hugging Face
+weight shard containing LLaVA's input embedding table, not the full 7B model:
+
+```bash
+python tools/build_sana_llava_geneval_projection.py \
+  --projector sana_llava_class_kernel_projector.pt \
+  --output output/text_embeddings/sana_llava_projected_geneval_native.pt \
+  --device cuda \
+  --batch-size 512
+```
+
+Then run the existing image generation and GenEval scorer:
+
+```bash
+bash scripts/bash_run_inference_metric_geneval.sh \
+  configs/sana_config/1024ms/Sana_600M_img1024.yaml \
+  hf://Efficient-Large-Model/Sana_600M_1024px/checkpoints/Sana_600M_1024px_MultiLing.pth \
+  --np=1 \
+  --step=20 \
+  --sample_nums=553 \
+  --projected_text_embeddings=output/text_embeddings/sana_llava_projected_geneval_native.pt \
+  --log_geneval=false
+```
