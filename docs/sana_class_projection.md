@@ -101,17 +101,23 @@ embedding vector is repeated across the 300 positions.
 
 ## Build and evaluate the LLaVA-projected GenEval sequence
 
-After fitting `sana_llava_class_kernel_projector.pt`, build the official
-tokenwise conditioning bundle. The builder downloads only the Hugging Face
-weight shard containing LLaVA's input embedding table, not the full 7B model:
+For the token-aligned projector, build contextual LLaVA states for the 553
+official prompts, align them to Gemma/SANA token positions, project them, and
+write the native `[553, 300, 2304]` conditioning bundle:
 
 ```bash
 python tools/build_sana_llava_geneval_projection.py \
-  --projector sana_llava_class_kernel_projector.pt \
-  --output output/text_embeddings/sana_llava_projected_geneval_native.pt \
+  --projector sana_llava_token_aligned_nystrom_projector.pt \
+  --output output/text_embeddings/sana_llava_token_aligned_geneval_native.pt \
   --device cuda \
+  --source-batch-size 2 \
   --batch-size 512
 ```
+
+This downloads and loads the contextual LLaVA model. On a 24 GB GPU, change
+`--source-batch-size` to `1` only if the build runs out of memory. The two
+companion calculation files (`sana_alignment_target_tokens.pt` and
+`sana_llava_token_aligned_projection_inputs.pt`) are not needed for inference.
 
 Then run the existing image generation and GenEval scorer:
 
@@ -122,6 +128,10 @@ bash scripts/bash_run_inference_metric_geneval.sh \
   --np=1 \
   --step=20 \
   --sample_nums=553 \
-  --projected_text_embeddings=output/text_embeddings/sana_llava_projected_geneval_native.pt \
+  --add_label=_token_aligned_500c1t \
+  --projected_text_embeddings=output/text_embeddings/sana_llava_token_aligned_geneval_native.pt \
   --log_geneval=false
 ```
+
+The unique `--add_label` prevents SANA from finding and reusing images from an
+earlier projected run.

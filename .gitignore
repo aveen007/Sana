@@ -25,6 +25,7 @@ vis/*
 *.pt
 !sana_projected_official_embeddings.pt
 !sana_llava_class_kernel_projector.pt
+!sana_llava_token_aligned_nystrom_projector.pt
 .gradio/
 *.db
 *.bin

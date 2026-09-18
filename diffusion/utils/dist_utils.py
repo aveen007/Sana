@@ -26,7 +26,13 @@ import shutil
 import mmcv
 import torch
 import torch.distributed as dist
-from mmcv.runner import get_dist_info
+
+
+def get_dist_info():
+    """Return rank and world size without importing MMCV's legacy runner."""
+    if dist.is_available() and dist.is_initialized():
+        return dist.get_rank(), dist.get_world_size()
+    return 0, 1
 
 
 def is_distributed():
