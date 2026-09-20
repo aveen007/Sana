@@ -69,6 +69,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--source-max-length", type=int, default=256)
     parser.add_argument("--sequence-length", type=int, default=300)
+    parser.add_argument(
+        "--repack-existing",
+        type=Path,
+        help=(
+            "Repair an existing token-aligned bundle by moving its active token "
+            "rows into SANA's right-padded native positions. This skips LLaVA."
+        ),
+    )
     parser.add_argument("--cache-dir", type=Path)
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -223,6 +231,10 @@ def build_target_layouts(
     chi_prompt: str,
     sequence_length: int,
 ) -> tuple[list[dict[str, Any]], torch.Tensor]:
+    # SANA explicitly sets Gemma to right padding in
+    # get_tokenizer_and_text_encoder(). The builder must do the same before
+    # applying SANA's [BOS] + last-(N-1) selection.
+    tokenizer.padding_side = "right"
     conditioned = [chi_prompt + prompt for prompt in prompts]
     tokenizer_max_length = len(tokenizer.encode(chi_prompt)) + sequence_length - 2
     encoded = tokenizer(
@@ -446,6 +458,68 @@ def pack_target_aligned_sequence(
     return y_pred, attention_mask, saved_token_ids
 
 
+def repack_existing_token_aligned_bundle(
+    existing_path: Path,
+    output_path: Path,
+    prompts: list[str],
+    target_layouts: list[dict[str, Any]],
+    target_token_ids: torch.Tensor,
+    sequence_length: int,
+) -> None:
+    """Move an old left-padded bundle into SANA's right-padded positions."""
+    if not existing_path.is_file():
+        raise FileNotFoundError(f"Existing projected bundle does not exist: {existing_path}")
+    bundle = torch.load(existing_path, map_location="cpu", weights_only=False)
+    if not isinstance(bundle, dict) or bundle.get("kind") != "sana_projected_official_geneval_native_sequence":
+        raise ValueError(f"Not a native projected GenEval bundle: {existing_path}")
+    if list(bundle.get("prompt_texts", [])) != prompts:
+        raise ValueError("Existing bundle prompts do not match official GenEval order")
+
+    embeddings = bundle.get("Y_pred")
+    if isinstance(embeddings, torch.Tensor) and embeddings.ndim == 4 and embeddings.shape[1] == 1:
+        embeddings = embeddings.squeeze(1)
+    old_mask = bundle.get("attention_mask", bundle.get("attention_masks"))
+    expected_prefix = (len(prompts), sequence_length)
+    if not isinstance(embeddings, torch.Tensor) or embeddings.shape[:2] != expected_prefix:
+        raise ValueError("Existing Y_pred does not have the expected prompt/sequence dimensions")
+    if not isinstance(old_mask, torch.Tensor) or old_mask.shape != expected_prefix:
+        raise ValueError("Existing attention mask has an invalid shape")
+
+    ordered_tokens = []
+    for row_index, layout in enumerate(target_layouts):
+        row_tokens = embeddings[row_index][old_mask[row_index].bool()]
+        if len(row_tokens) != len(layout["positions"]):
+            raise ValueError(
+                f"Prompt {row_index} has {len(row_tokens)} existing active tokens but "
+                f"{len(layout['positions'])} right-padded target positions"
+            )
+        ordered_tokens.append(row_tokens)
+    flat_tokens = torch.cat(ordered_tokens)
+    y_pred, attention_mask, token_ids = pack_target_aligned_sequence(
+        flat_tokens,
+        target_layouts,
+        target_token_ids,
+        sequence_length,
+    )
+
+    repaired = dict(bundle)
+    repaired.update(
+        {
+            "format_version": max(int(bundle.get("format_version", 1)), 4),
+            "Y_pred": y_pred,
+            "attention_mask": attention_mask,
+            "token_ids": token_ids,
+            "conditioning_layout": "native_gemma_prompt_positions_right_padding",
+            "target_tokenizer_padding_side": "right",
+            "layout_repacked_from": str(existing_path),
+        }
+    )
+    atomic_torch_save(output_path, repaired)
+    print(f"Repacked and verified: {output_path}")
+    print(f"Y_pred: {tuple(y_pred.shape)} {y_pred.dtype}")
+    print(f"Attention mask: {tuple(attention_mask.shape)} ({int(attention_mask.sum())} active tokens)")
+
+
 def load_llava_embedding_table(model_id: str, cache_dir: Path | None) -> tuple[torch.Tensor, str, str]:
     cache = str(cache_dir) if cache_dir else None
     index_path = hf_hub_download(
@@ -607,6 +681,17 @@ def main() -> None:
         )
         print(f"Target-aligned prompt tokens: {sum(len(layout['positions']) for layout in target_layouts):,}")
 
+        if args.repack_existing:
+            repack_existing_token_aligned_bundle(
+                args.repack_existing,
+                args.output,
+                prompts,
+                target_layouts,
+                target_token_ids,
+                args.sequence_length,
+            )
+            return
+
         model, backbone, source_tokenizer, input_device = load_contextual_llava(
             source_model_id,
             args.cache_dir,
@@ -639,6 +724,8 @@ def main() -> None:
         source_representation = "llava_contextual_states_aligned_to_gemma_token_spans"
         conditioning_layout = "native_gemma_prompt_positions"
     else:
+        if args.repack_existing:
+            raise ValueError("--repack-existing is supported only by token-aligned projectors")
         source_tokenizer = load_tokenizer(source_model_id, args.cache_dir)
         if args.source_token_embeddings:
             token_rows, attention_mask, source_features = load_source_token_embeddings(

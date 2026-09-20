@@ -231,8 +231,6 @@ class SanaConditioningDebugger:
         native_mask = _as_mask(native_mask, batch, token_count).to(native_tokens.device)
         mapped_mask = _as_mask(mapped_mask, batch, token_count).to(native_tokens.device)
         common_mask = native_mask & mapped_mask
-        if not common_mask.any():
-            raise ValueError("Native and mapped masks have no active token positions in common")
 
         report: dict[str, Any] = {
             "title": "TEXT CONDITIONING DEBUG",
@@ -259,6 +257,12 @@ class SanaConditioningDebugger:
                 "native_active_tokens": int(native_mask.sum()),
                 "mapped_active_tokens": int(mapped_mask.sum()),
                 "common_active_tokens": int(common_mask.sum()),
+                "native_active_positions": torch.nonzero(
+                    native_mask, as_tuple=False
+                ).cpu().tolist(),
+                "mapped_active_positions": torch.nonzero(
+                    mapped_mask, as_tuple=False
+                ).cpu().tolist(),
                 "different_mask_positions": torch.nonzero(
                     native_mask != mapped_mask, as_tuple=False
                 ).cpu().tolist(),
@@ -266,6 +270,34 @@ class SanaConditioningDebugger:
             "stages": {},
             "blocks": [],
         }
+
+        if not common_mask.any():
+            report["fatal_alignment_error"] = (
+                "Native and mapped attention masks have no active positions in common. "
+                "The projected sequence layout is incompatible with SANA's injection layout."
+            )
+            print("\n==============================")
+            print("TEXT CONDITIONING DEBUG")
+            print("==============================")
+            print("MASK ALIGNMENT FAILURE")
+            print(report["fatal_alignment_error"])
+            print(
+                "Native active positions:",
+                [position[1] for position in report["mask_alignment"]["native_active_positions"]],
+            )
+            print(
+                "Mapped active positions:",
+                [position[1] for position in report["mask_alignment"]["mapped_active_positions"]],
+            )
+            if output_path is not None:
+                output_path = Path(output_path)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary_path = output_path.with_suffix(output_path.suffix + ".tmp")
+                with open(temporary_path, "w", encoding="utf-8") as handle:
+                    json.dump(report, handle, indent=2)
+                temporary_path.replace(output_path)
+                print(f"Alignment failure report: {output_path}")
+            return report
 
         report["stages"]["raw_full_sequence"] = _compare_tensors(
             native_tokens, mapped_tokens, include_per_token=self.include_per_token
