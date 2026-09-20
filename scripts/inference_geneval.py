@@ -47,6 +47,7 @@ from diffusion.data.datasets.utils import (
 )
 from diffusion.model.builder import build_model, get_tokenizer_and_text_encoder, get_vae, vae_decode
 from diffusion.model.utils import get_weight_dtype, prepare_prompt_ar
+from diffusion.utils.conditioning_debugger import debug_conditioning
 from diffusion.utils.config import SanaConfig, model_init_config
 from diffusion.utils.logger import get_root_logger
 
@@ -274,7 +275,8 @@ def visualize(sample_steps, cfg_scale, pag_scale):
 
                 # check exists
                 save_path = os.path.join(sample_path, f"{sample_count:05}.png")
-                if os.path.exists(save_path):
+                debug_this_prompt = args.conditioning_debug and index == args.conditioning_debug_prompt_index
+                if os.path.exists(save_path) and not debug_this_prompt:
                     # make sure the noise is totally same
                     torch.randn(
                         batch_size,
@@ -303,11 +305,15 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                 select_index = [0] + list(
                     range(-config.text_encoder.model_max_length + 1, 0)
                 )  # First BOS token and the last N - 1 tokens
-                emb_masks = caption_token.attention_mask[:, select_index]
+                native_emb_masks = caption_token.attention_mask[:, select_index]
+                native_caption_embs = None
+                if projected_text_embeddings is None or debug_this_prompt:
+                    native_caption_embs = text_encoder(
+                        caption_token.input_ids, caption_token.attention_mask
+                    )[0][:, None][:, :, select_index]
                 if projected_text_embeddings is None:
-                    caption_embs = text_encoder(caption_token.input_ids, caption_token.attention_mask)[0][:, None][
-                        :, :, select_index
-                    ]
+                    caption_embs = native_caption_embs
+                    emb_masks = native_emb_masks
                 elif projected_text_mode == "pooled_repeat":
                     # The projection produces one pooled vector per prompt. Repeat it
                     # over SANA's context length while preserving the normal prompt
@@ -316,8 +322,9 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                         device=device, dtype=null_caption_embs.dtype
                     )
                     caption_embs = projected_row.view(1, 1, 1, -1).repeat(
-                        len(prompts), 1, emb_masks.shape[1], 1
+                        len(prompts), 1, native_emb_masks.shape[1], 1
                     )
+                    emb_masks = native_emb_masks
                 else:
                     projected_row = projected_text_embeddings[index].to(
                         device=device, dtype=null_caption_embs.dtype
@@ -343,6 +350,39 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                         dtype=weight_dtype,
                     )
                     model_kwargs = dict(data_info={"img_hw": hw, "aspect_ratio": ar}, mask=emb_masks)
+
+                    if debug_this_prompt:
+                        if native_caption_embs is None:
+                            raise RuntimeError("Conditioning debug could not capture native text embeddings")
+                        debug_data_info = {
+                            key: value[:1] if isinstance(value, torch.Tensor) and value.ndim > 0 else value
+                            for key, value in model_kwargs["data_info"].items()
+                        }
+                        debug_output = args.conditioning_debug_output or os.path.join(
+                            "output", f"conditioning_debug_prompt_{index:05d}.json"
+                        )
+                        debug_conditioning(
+                            native_caption_embs[:1],
+                            caption_embs[:1],
+                            model=model,
+                            native_mask=native_emb_masks[:1],
+                            mapped_mask=emb_masks[:1],
+                            latent=z[:1],
+                            timestep=torch.full(
+                                (1,),
+                                args.conditioning_debug_timestep,
+                                device=device,
+                                dtype=torch.float32,
+                            ),
+                            data_info=debug_data_info,
+                            prompt=prompt,
+                            prompt_index=index,
+                            output_path=debug_output,
+                            include_per_token=args.conditioning_debug_per_token,
+                        )
+                        if args.conditioning_debug_only:
+                            logger.info("Conditioning debug complete; stopping before image sampling")
+                            return
 
                     if args.sampling_algo == "dpm-solver":
                         dpm_solver = DPMS(
@@ -464,6 +504,30 @@ class SanaInference(SanaConfig):
     projected_text_embeddings: Optional[str] = field(
         default=None,
         metadata={"help": "A .pt bundle containing official GenEval projected vectors in Y_pred"},
+    )
+    conditioning_debug: bool = field(
+        default=False,
+        metadata={"help": "Compare native and projected conditioning through the loaded SANA model"},
+    )
+    conditioning_debug_only: bool = field(
+        default=False,
+        metadata={"help": "Exit after writing the conditioning debug report"},
+    )
+    conditioning_debug_prompt_index: int = field(
+        default=0,
+        metadata={"help": "Absolute GenEval prompt index to inspect"},
+    )
+    conditioning_debug_timestep: float = field(
+        default=500.0,
+        metadata={"help": "SANA timestep used for controlled native/mapped forward comparisons"},
+    )
+    conditioning_debug_output: Optional[str] = field(
+        default=None,
+        metadata={"help": "Optional JSON path for the full conditioning debug report"},
+    )
+    conditioning_debug_per_token: bool = field(
+        default=False,
+        metadata={"help": "Include individual token cosine values in the JSON report"},
     )
     tar_and_del: bool = field(default=False, metadata={"help": "if tar and del the saved dir"})
     exist_time_prefix: str = ""
@@ -604,6 +668,15 @@ if __name__ == "__main__":
             args.projected_text_embeddings,
             projected_text_mode,
         )
+    if args.conditioning_debug:
+        if projected_text_embeddings is None:
+            raise ValueError("--conditioning_debug requires --projected_text_embeddings")
+        if not (args.start_index <= args.conditioning_debug_prompt_index < args.end_index):
+            raise ValueError(
+                "The conditioning debug prompt must be inside the selected inference range: "
+                f"prompt={args.conditioning_debug_prompt_index}, "
+                f"range=[{args.start_index}, {args.end_index})"
+            )
     metadatas = metadatas[args.start_index : args.end_index]
     logger.info(f"Eval first {min(args.sample_nums, len(metadatas))}/{len(metadatas)} samples")
 
