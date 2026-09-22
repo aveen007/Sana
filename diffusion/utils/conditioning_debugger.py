@@ -622,10 +622,10 @@ def _token_attention_block_rows(
         zip(native_records, mapped_records)
     ):
         query = native_record["query"].float()
-        native_key = native_record["key_without_bias"].float()
-        mapped_key = mapped_record["key_without_bias"].float()
-        native_value = native_record["value"].float()
-        mapped_value = mapped_record["value"].float()
+        native_key = native_record["key_without_bias_active"].float()
+        mapped_key = mapped_record["key_without_bias_active"].float()
+        native_value = native_record["value_active"].float()
+        mapped_value = mapped_record["value_active"].float()
         if native_key.shape[-2] != active_token_count:
             raise ValueError(
                 "Captured cross-attention token count does not match common active tokens: "
@@ -1478,6 +1478,28 @@ class _CrossAttentionCapture:
         key = key.transpose(1, 2)
         key_without_bias = key_without_bias.transpose(1, 2)
         value = value.transpose(1, 2)
+        active_key = key
+        active_key_without_bias = key_without_bias
+        active_value = value
+        active_token_positions = list(range(key.shape[-2]))
+        if isinstance(mask, torch.Tensor) and mask.ndim == 2:
+            if mask.shape[0] != 1 or key.shape[0] != 1:
+                raise ValueError(
+                    "Conditioning debug active-token capture requires batch size 1 "
+                    "for an unpacked padded attention mask"
+                )
+            if mask.shape[1] != key.shape[-2]:
+                raise ValueError(
+                    "Cross-attention mask length does not match captured K/V length: "
+                    f"{mask.shape[1]} vs {key.shape[-2]}"
+                )
+            active_selector = mask[0].bool()
+            active_token_positions = torch.nonzero(
+                active_selector, as_tuple=False
+            ).flatten().cpu().tolist()
+            active_key = key[..., active_selector, :]
+            active_key_without_bias = key_without_bias[..., active_selector, :]
+            active_value = value[..., active_selector, :]
         raw_logits = torch.matmul(query.float(), key.float().transpose(-2, -1)) / math.sqrt(
             module.head_dim
         )
@@ -1493,6 +1515,12 @@ class _CrossAttentionCapture:
         self.records[index]["key"] = key.detach().cpu()
         self.records[index]["key_without_bias"] = key_without_bias.detach().cpu()
         self.records[index]["value"] = value.detach().cpu()
+        self.records[index]["key_active"] = active_key.detach().cpu()
+        self.records[index]["key_without_bias_active"] = (
+            active_key_without_bias.detach().cpu()
+        )
+        self.records[index]["value_active"] = active_value.detach().cpu()
+        self.records[index]["active_token_positions"] = active_token_positions
         self.records[index]["attention_logits"] = reported_logits.detach().cpu()
         attention_weights = torch.softmax(logits_for_softmax, dim=-1)
         if isinstance(mask, torch.Tensor) and mask.ndim == 2 and mask.shape[0] == 1:
@@ -1922,13 +1950,13 @@ class SanaConditioningDebugger:
         for block_index, block_report in enumerate(report["blocks"]):
             native_record = native_capture.records[block_index]
             mapped_record = mapped_capture.records[block_index]
-            native_key_without_bias = native_record["key_without_bias"]
-            mapped_key_without_bias = mapped_record["key_without_bias"]
+            native_key_without_bias = native_record["key_without_bias_active"]
+            mapped_key_without_bias = mapped_record["key_without_bias_active"]
             block_report["fixed_native_query_attention"] = (
                 _fixed_query_attention_metrics(
                     native_record["query"],
-                    native_record["key"],
-                    mapped_record["key"],
+                    native_record["key_active"],
+                    mapped_record["key_active"],
                 )
             )
             block_report["fixed_native_query_attention_without_key_bias"] = (
@@ -1941,12 +1969,12 @@ class SanaConditioningDebugger:
             block_report["key_bias_attention_effect"] = {
                 "native_actual_vs_weight_only": _fixed_query_attention_metrics(
                     native_record["query"],
-                    native_record["key"],
+                    native_record["key_active"],
                     native_key_without_bias,
                 ),
                 "mapped_actual_vs_weight_only": _fixed_query_attention_metrics(
                     native_record["query"],
-                    mapped_record["key"],
+                    mapped_record["key_active"],
                     mapped_key_without_bias,
                 ),
             }

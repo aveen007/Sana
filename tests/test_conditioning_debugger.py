@@ -20,6 +20,7 @@ _DEBUGGER = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_DEBUGGER)
 
 SanaConditioningDebugger = _DEBUGGER.SanaConditioningDebugger
+_CrossAttentionCapture = _DEBUGGER._CrossAttentionCapture
 _fixed_query_attention_metrics = _DEBUGGER._fixed_query_attention_metrics
 _projection_dimension_analysis = _DEBUGGER._projection_dimension_analysis
 _sign_metrics = _DEBUGGER._sign_metrics
@@ -148,6 +149,22 @@ class ConditioningDebuggerTests(unittest.TestCase):
         self.assertEqual(result["jensen_shannon_divergence"], 0)
         self.assertEqual(result["argmax_token_agreement_fraction"], 1)
         self.assertEqual(result["top3_token_overlap_fraction"], 1)
+
+    def test_capture_selects_active_kv_from_unpacked_padded_sequence(self):
+        model = _Model().eval()
+        image = torch.randn(1, 3, 4)
+        condition = torch.randn(1, 3, 4)
+        mask = torch.tensor([[1, 1, 0]], dtype=torch.uint8)
+
+        with _CrossAttentionCapture(model) as capture:
+            model.blocks[0].cross_attn(image, condition, mask)
+
+        record = capture.records[0]
+        self.assertEqual(record["key"].shape[-2], 3)
+        self.assertEqual(record["key_active"].shape[-2], 2)
+        self.assertEqual(record["key_without_bias_active"].shape[-2], 2)
+        self.assertEqual(record["value_active"].shape[-2], 2)
+        self.assertEqual(record["active_token_positions"], [0, 1])
 
     def test_full_debugger_writes_json_and_csv(self):
         torch.manual_seed(7)
