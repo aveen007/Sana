@@ -361,6 +361,10 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                         debug_output = args.conditioning_debug_output or os.path.join(
                             "output", f"conditioning_debug_prompt_{index:05d}.json"
                         )
+                        debug_token_labels = [
+                            [str(token) for token in tokenizer.convert_ids_to_tokens(row.tolist())]
+                            for row in caption_token.input_ids[:1, select_index]
+                        ]
                         debug_conditioning(
                             native_caption_embs[:1],
                             caption_embs[:1],
@@ -377,8 +381,11 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                             data_info=debug_data_info,
                             prompt=prompt,
                             prompt_index=index,
+                            token_labels=debug_token_labels,
                             output_path=debug_output,
                             include_per_token=args.conditioning_debug_per_token,
+                            top_n_dimensions=args.conditioning_debug_top_n,
+                            worst_token_count=args.conditioning_debug_worst_tokens,
                         )
                         if args.conditioning_debug_only:
                             logger.info("Conditioning debug complete; stopping before image sampling")
@@ -528,6 +535,14 @@ class SanaInference(SanaConfig):
     conditioning_debug_per_token: bool = field(
         default=False,
         metadata={"help": "Include individual token cosine values in the JSON report"},
+    )
+    conditioning_debug_top_n: int = field(
+        default=20,
+        metadata={"help": "Number of GELU coordinates and K/V input dimensions to save"},
+    )
+    conditioning_debug_worst_tokens: int = field(
+        default=5,
+        metadata={"help": "Number of worst active tokens to summarize per diagnostic"},
     )
     tar_and_del: bool = field(default=False, metadata={"help": "if tar and del the saved dir"})
     exist_time_prefix: str = ""
