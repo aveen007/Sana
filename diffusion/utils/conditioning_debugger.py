@@ -304,21 +304,6 @@ def _center_active_tokens(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Ten
     return centered
 
 
-def _pack_attention_heads(
-    tensor: torch.Tensor,
-    mask: torch.Tensor,
-    *,
-    num_heads: int,
-    head_dim: int,
-) -> torch.Tensor:
-    """Pack active conditioning exactly as batch-one SANA cross-attention sees it."""
-    if tensor.shape[0] != 1:
-        raise ValueError("Conditioning debug currently requires batch size 1")
-    channels = tensor.shape[-1]
-    packed = tensor.masked_select(mask.unsqueeze(-1)).view(1, -1, channels)
-    return packed.view(1, -1, num_heads, head_dim).transpose(1, 2)
-
-
 def _fixed_query_attention_metrics(
     native_query: torch.Tensor,
     native_key: torch.Tensor,
@@ -566,11 +551,18 @@ class _CrossAttentionCapture:
         )
         key_value = module.kv_linear(condition).view(first_dim, -1, 2, channels)
         key, value = key_value.unbind(2)
+        key_without_bias = F.linear(
+            condition, module.kv_linear.weight[:channels], None
+        )
         key = module.k_norm(key).view(first_dim, -1, module.num_heads, module.head_dim)
+        key_without_bias = module.k_norm(key_without_bias).view(
+            first_dim, -1, module.num_heads, module.head_dim
+        )
         value = value.view(first_dim, -1, module.num_heads, module.head_dim)
 
         query = query.transpose(1, 2)
         key = key.transpose(1, 2)
+        key_without_bias = key_without_bias.transpose(1, 2)
         value = value.transpose(1, 2)
         raw_logits = torch.matmul(query.float(), key.float().transpose(-2, -1)) / math.sqrt(
             module.head_dim
@@ -585,6 +577,7 @@ class _CrossAttentionCapture:
 
         self.records[index]["query"] = query.detach().cpu()
         self.records[index]["key"] = key.detach().cpu()
+        self.records[index]["key_without_bias"] = key_without_bias.detach().cpu()
         self.records[index]["value"] = value.detach().cpu()
         self.records[index]["attention_logits"] = reported_logits.detach().cpu()
         attention_weights = torch.softmax(logits_for_softmax, dim=-1)
@@ -791,8 +784,6 @@ class SanaConditioningDebugger:
 
         native_values_by_block: list[torch.Tensor] = []
         mapped_values_by_block: list[torch.Tensor] = []
-        native_keys_without_bias_by_block: list[torch.Tensor] = []
-        mapped_keys_without_bias_by_block: list[torch.Tensor] = []
         projection_input_metric = _compare_tensors(
             native_conditioning_tokens,
             mapped_conditioning_tokens,
@@ -830,8 +821,6 @@ class SanaConditioningDebugger:
             )
             native_key_without_bias = attention.k_norm(native_key_without_bias_raw)
             mapped_key_without_bias = attention.k_norm(mapped_key_without_bias_raw)
-            native_keys_without_bias_by_block.append(native_key_without_bias)
-            mapped_keys_without_bias_by_block.append(mapped_key_without_bias)
             key_raw_metric = _compare_tensors(
                 native_key_raw,
                 mapped_key_raw,
@@ -1015,19 +1004,8 @@ class SanaConditioningDebugger:
         for block_index, block_report in enumerate(report["blocks"]):
             native_record = native_capture.records[block_index]
             mapped_record = mapped_capture.records[block_index]
-            attention = self.model.blocks[block_index].cross_attn
-            native_key_without_bias = _pack_attention_heads(
-                native_keys_without_bias_by_block[block_index],
-                common_mask,
-                num_heads=attention.num_heads,
-                head_dim=attention.head_dim,
-            ).detach().cpu()
-            mapped_key_without_bias = _pack_attention_heads(
-                mapped_keys_without_bias_by_block[block_index],
-                common_mask,
-                num_heads=attention.num_heads,
-                head_dim=attention.head_dim,
-            ).detach().cpu()
+            native_key_without_bias = native_record["key_without_bias"]
+            mapped_key_without_bias = mapped_record["key_without_bias"]
             block_report["fixed_native_query_attention"] = (
                 _fixed_query_attention_metrics(
                     native_record["query"],
