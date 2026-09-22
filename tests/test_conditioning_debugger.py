@@ -177,6 +177,20 @@ class ConditioningDebuggerTests(unittest.TestCase):
             self.assertTrue(report["native_reinjection_sanity"]["passed"])
             self.assertIn("gelu_analysis", report)
             self.assertIn("fixed_native_query_attention", report["blocks"][0])
+            self.assertIn(
+                "output_weight_only", report["blocks"][0]["key_projection"]
+            )
+            self.assertIn(
+                "output_centered_across_active_tokens",
+                report["blocks"][0]["key_projection"],
+            )
+            bias_effect = report["blocks"][0]["key_bias_attention_effect"]
+            self.assertLess(
+                bias_effect["native_actual_vs_weight_only"]["attention"][
+                    "mean_absolute_error"
+                ],
+                1e-6,
+            )
             self.assertEqual(len(report["per_token_statistics"]["tokens"]), 2)
             self.assertTrue(output.is_file())
             self.assertTrue(output.with_suffix(".csv").is_file())

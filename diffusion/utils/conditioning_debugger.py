@@ -292,6 +292,33 @@ def _projection_dimension_analysis(
     }
 
 
+def _center_active_tokens(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    """Remove each sample's mean active-token vector while preserving shape."""
+    centered = tensor.clone()
+    for batch_index in range(tensor.shape[0]):
+        active = mask[batch_index]
+        if not active.any():
+            raise ValueError("Cannot center a sequence with no active tokens")
+        mean = tensor[batch_index, active].mean(dim=0, keepdim=True)
+        centered[batch_index] = tensor[batch_index] - mean
+    return centered
+
+
+def _pack_attention_heads(
+    tensor: torch.Tensor,
+    mask: torch.Tensor,
+    *,
+    num_heads: int,
+    head_dim: int,
+) -> torch.Tensor:
+    """Pack active conditioning exactly as batch-one SANA cross-attention sees it."""
+    if tensor.shape[0] != 1:
+        raise ValueError("Conditioning debug currently requires batch size 1")
+    channels = tensor.shape[-1]
+    packed = tensor.masked_select(mask.unsqueeze(-1)).view(1, -1, channels)
+    return packed.view(1, -1, num_heads, head_dim).transpose(1, 2)
+
+
 def _fixed_query_attention_metrics(
     native_query: torch.Tensor,
     native_key: torch.Tensor,
@@ -764,6 +791,8 @@ class SanaConditioningDebugger:
 
         native_values_by_block: list[torch.Tensor] = []
         mapped_values_by_block: list[torch.Tensor] = []
+        native_keys_without_bias_by_block: list[torch.Tensor] = []
+        mapped_keys_without_bias_by_block: list[torch.Tensor] = []
         projection_input_metric = _compare_tensors(
             native_conditioning_tokens,
             mapped_conditioning_tokens,
@@ -783,6 +812,26 @@ class SanaConditioningDebugger:
             mapped_key_raw, mapped_value = mapped_kv.unbind(2)
             native_key = attention.k_norm(native_key_raw)
             mapped_key = attention.k_norm(mapped_key_raw)
+            kv_weight = attention.kv_linear.weight
+            kv_bias = attention.kv_linear.bias
+            key_weight = kv_weight[:channels]
+            value_weight = kv_weight[channels:]
+            native_key_without_bias_raw = F.linear(
+                native_conditioning_tokens, key_weight, None
+            )
+            mapped_key_without_bias_raw = F.linear(
+                mapped_conditioning_tokens, key_weight, None
+            )
+            native_value_without_bias = F.linear(
+                native_conditioning_tokens, value_weight, None
+            )
+            mapped_value_without_bias = F.linear(
+                mapped_conditioning_tokens, value_weight, None
+            )
+            native_key_without_bias = attention.k_norm(native_key_without_bias_raw)
+            mapped_key_without_bias = attention.k_norm(mapped_key_without_bias_raw)
+            native_keys_without_bias_by_block.append(native_key_without_bias)
+            mapped_keys_without_bias_by_block.append(mapped_key_without_bias)
             key_raw_metric = _compare_tensors(
                 native_key_raw,
                 mapped_key_raw,
@@ -801,6 +850,32 @@ class SanaConditioningDebugger:
                 mask=common_mask,
                 include_per_token=self.include_per_token,
             )
+            key_without_bias_metric = _compare_tensors(
+                native_key_without_bias,
+                mapped_key_without_bias,
+                mask=common_mask,
+                include_per_token=self.include_per_token,
+            )
+            value_without_bias_metric = _compare_tensors(
+                native_value_without_bias,
+                mapped_value_without_bias,
+                mask=common_mask,
+                include_per_token=self.include_per_token,
+            )
+            centered_native_key = _center_active_tokens(native_key, common_mask)
+            centered_mapped_key = _center_active_tokens(mapped_key, common_mask)
+            centered_key_metric = _compare_tensors(
+                centered_native_key,
+                centered_mapped_key,
+                mask=common_mask,
+                include_per_token=self.include_per_token,
+            )
+            if kv_bias is None:
+                key_bias_norm = 0.0
+                value_bias_norm = 0.0
+            else:
+                key_bias_norm = float(kv_bias[:channels].detach().float().norm())
+                value_bias_norm = float(kv_bias[channels:].detach().float().norm())
             native_values_by_block.append(native_value)
             mapped_values_by_block.append(mapped_value)
             report["blocks"].append(
@@ -808,12 +883,29 @@ class SanaConditioningDebugger:
                     "block": block_index,
                     "key_projection": {
                         "input": dict(projection_input_metric),
+                        "output_weight_only_before_key_norm": _compare_tensors(
+                            native_key_without_bias_raw,
+                            mapped_key_without_bias_raw,
+                            mask=common_mask,
+                            include_per_token=self.include_per_token,
+                        ),
+                        "output_weight_only": key_without_bias_metric,
                         "output_before_key_norm": key_raw_metric,
                         "output": key_metric,
+                        "output_centered_across_active_tokens": centered_key_metric,
+                        "bias_norm": key_bias_norm,
+                        "bias_to_native_output_norm_ratio": float(
+                            key_bias_norm / max(key_metric["native_norm"], 1e-12)
+                        ),
                     },
                     "value_projection": {
                         "input": dict(projection_input_metric),
+                        "output_weight_only": value_without_bias_metric,
                         "output": value_metric,
+                        "bias_norm": value_bias_norm,
+                        "bias_to_native_output_norm_ratio": float(
+                            value_bias_norm / max(value_metric["native_norm"], 1e-12)
+                        ),
                     },
                     # Keep these aliases for compatibility with earlier reports.
                     "key": key_metric,
@@ -923,6 +1015,19 @@ class SanaConditioningDebugger:
         for block_index, block_report in enumerate(report["blocks"]):
             native_record = native_capture.records[block_index]
             mapped_record = mapped_capture.records[block_index]
+            attention = self.model.blocks[block_index].cross_attn
+            native_key_without_bias = _pack_attention_heads(
+                native_keys_without_bias_by_block[block_index],
+                common_mask,
+                num_heads=attention.num_heads,
+                head_dim=attention.head_dim,
+            ).detach().cpu()
+            mapped_key_without_bias = _pack_attention_heads(
+                mapped_keys_without_bias_by_block[block_index],
+                common_mask,
+                num_heads=attention.num_heads,
+                head_dim=attention.head_dim,
+            ).detach().cpu()
             block_report["fixed_native_query_attention"] = (
                 _fixed_query_attention_metrics(
                     native_record["query"],
@@ -930,6 +1035,25 @@ class SanaConditioningDebugger:
                     mapped_record["key"],
                 )
             )
+            block_report["fixed_native_query_attention_without_key_bias"] = (
+                _fixed_query_attention_metrics(
+                    native_record["query"],
+                    native_key_without_bias,
+                    mapped_key_without_bias,
+                )
+            )
+            block_report["key_bias_attention_effect"] = {
+                "native_actual_vs_weight_only": _fixed_query_attention_metrics(
+                    native_record["query"],
+                    native_record["key"],
+                    native_key_without_bias,
+                ),
+                "mapped_actual_vs_weight_only": _fixed_query_attention_metrics(
+                    native_record["query"],
+                    mapped_record["key"],
+                    mapped_key_without_bias,
+                ),
+            }
             for stage_name in (
                 "query",
                 "attention_logits",
@@ -1051,12 +1175,33 @@ class SanaConditioningDebugger:
                 "K input", block["key_projection"]["input"], indent="    "
             )
             cls._print_metric(
-                "K output", block["key_projection"]["output"], indent="    "
+                "K output (weight only, before bias)",
+                block["key_projection"]["output_weight_only"],
+                indent="    ",
+            )
+            cls._print_metric(
+                "K output (actual, with bias)",
+                block["key_projection"]["output"],
+                indent="    ",
+            )
+            cls._print_metric(
+                "K output (token-centered)",
+                block["key_projection"]["output_centered_across_active_tokens"],
+                indent="    ",
             )
             cls._print_metric(
                 "V output", block["value_projection"]["output"], indent="    "
             )
+            print(
+                "    K/V bias norm="
+                f"{block['key_projection']['bias_norm']:.6f}/"
+                f"{block['value_projection']['bias_norm']:.6f}"
+            )
             fixed = block["fixed_native_query_attention"]
+            fixed_without_bias = block[
+                "fixed_native_query_attention_without_key_bias"
+            ]
+            bias_effect = block["key_bias_attention_effect"]
             print(
                 "    fixed-Q attention: "
                 f"cos={fixed['attention']['cosine_similarity']:.6f} "
@@ -1066,6 +1211,13 @@ class SanaConditioningDebugger:
                 f"top3_overlap={100 * fixed['top3_token_overlap_fraction']:.2f}% "
                 f"entropy[native/mapped]={fixed['native_attention_entropy']:.6f}/"
                 f"{fixed['mapped_attention_entropy']:.6f}"
+            )
+            print(
+                "    fixed-Q without K bias: "
+                f"cos={fixed_without_bias['attention']['cosine_similarity']:.6f}; "
+                "bias effect MAE[native/mapped]="
+                f"{bias_effect['native_actual_vs_weight_only']['attention']['mean_absolute_error']:.8f}/"
+                f"{bias_effect['mapped_actual_vs_weight_only']['attention']['mean_absolute_error']:.8f}"
             )
             print(
                 "    full-path attention: "

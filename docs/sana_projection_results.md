@@ -181,7 +181,7 @@ The native-reinjection sanity check now passes exactly. The remaining native/map
 
 The poor score is caused by the mapped conditioning itself, not left-versus-right padding. The strongest measured failures remain the drop from `0.850` raw token cosine to `0.510` after SANA conditioning, the missing/different BOS mask position, and the subsequent divergence of V content and attention distributions.
 
-## Extended debugger (pending server run)
+## Extended debugger result
 
 The opt-in debugger now also records:
 
@@ -192,3 +192,16 @@ The opt-in debugger now also records:
 - worst active tokens by post-GELU cosine, post-RMSNorm cosine, V cosine, and sign agreement.
 
 Each debug run writes both JSON and a flattened comparison-friendly CSV. No projector or inference behavior was changed.
+
+Prompt 0 produced the following main findings:
+
+- Pre-GELU sign agreement is `94.60%`; magnitude-weighted sign error is only `1.81%`. Widespread sign reversal is therefore not the main failure.
+- GELU still changes cosine from `0.9445` to `0.5856`. Only `0.71%` of coordinate errors grow in absolute size, so the drop is driven by sparse large mismatches and very different post-GELU feature magnitudes, not broad error amplification.
+- The first token `a` is especially damaged: post-GELU cosine `0.2131`, post-RMSNorm cosine `0.0907`, and minimum V cosine `0.0230`. The later `a` token remains much better (`0.9589` post-GELU), indicating token/context alignment failure rather than a word-level failure alone.
+- V relative L2 error is approximately `0.75-1.11` across blocks: the V error is about as large as the native V signal.
+- Fixed-native-Q attention already collapses: block 0 cosine `0.0652`, block 22 `0.0000`, block 23 `0.00048`, and block 24 `0.0000`. JS divergence approaches its maximum `ln(2) = 0.693`, and argmax-token agreement is usually near zero.
+- Therefore late attention collapse is not primarily caused by accumulated Q drift. Changing only native K to mapped K is sufficient.
+- Raw K cosine near `1.0` is misleading because K has a huge shared component (`K` norm roughly `70-426`, versus differences around `1-2`). A learned K bias is the leading explanation, but the first run did not measure bias-free K directly. The debugger now reports `Wk(x)` before bias, actual `Wk(x)+b`, token-centered K, and the attention difference with/without bias; a server rerun is required to confirm this explanation on the real model.
+- Repeated high-impact V-error input dimensions include `920`, `790`, `741`, `514`, `453`, and `883`. Wv strongly amplifies their input errors; Wk does not simply ignore all of them, so K/V weight selectivity alone does not explain the apparent K agreement.
+
+The remaining mask mismatch is one missing/different BOS position (`native=6`, `mapped=5`), but the fixed-Q comparison uses the five common tokens and still collapses. BOS mismatch is an additional problem, not the primary explanation.
