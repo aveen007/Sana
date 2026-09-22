@@ -450,6 +450,713 @@ def _per_token_statistics(
     }
 
 
+def _single_vector_metrics(
+    native: torch.Tensor, mapped: torch.Tensor
+) -> dict[str, float]:
+    """Return mapping metrics for one token vector."""
+    native = native.detach().float().cpu()
+    mapped = mapped.detach().float().cpu()
+    delta = native - mapped
+    native_norm = native.norm()
+    mapped_norm = mapped.norm()
+    l2 = delta.norm()
+    return {
+        "cosine": float(F.cosine_similarity(native, mapped, dim=0, eps=1e-12)),
+        "l2_error": float(l2),
+        "relative_l2_error": float(l2 / native_norm.clamp_min(1e-12)),
+        "native_norm": float(native_norm),
+        "mapped_norm": float(mapped_norm),
+        "norm_ratio": float(mapped_norm / native_norm.clamp_min(1e-12)),
+        "mean_absolute_error": float(delta.abs().mean()),
+        "maximum_absolute_error": float(delta.abs().max()),
+    }
+
+
+def _coordinate_error_rows(
+    native: torch.Tensor,
+    mapped: torch.Tensor,
+    *,
+    top_n: int,
+) -> list[dict[str, Any]]:
+    """Rank a token's coordinates by absolute native-minus-mapped error."""
+    native = native.detach().float().cpu().flatten()
+    mapped = mapped.detach().float().cpu().flatten()
+    delta = native - mapped
+    count = min(max(int(top_n), 0), delta.numel())
+    if not count:
+        return []
+    rows: list[dict[str, Any]] = []
+    for dimension in torch.topk(delta.abs(), k=count).indices.tolist():
+        native_value = native[dimension]
+        mapped_value = mapped[dimension]
+        absolute_error = delta[dimension].abs()
+        rows.append(
+            {
+                "dimension": int(dimension),
+                "native_value": float(native_value),
+                "mapped_value": float(mapped_value),
+                "absolute_error": float(absolute_error),
+                "relative_error": float(
+                    absolute_error / native_value.abs().clamp_min(1e-12)
+                ),
+                "sign_match": bool(
+                    torch.signbit(native_value) == torch.signbit(mapped_value)
+                ),
+            }
+        )
+    return rows
+
+
+def _rms_dimension_attribution(
+    native: torch.Tensor,
+    mapped: torch.Tensor,
+    *,
+    blocks,
+    top_n: int,
+) -> dict[str, Any]:
+    """Trace post-RMS coordinate errors through every learned Wk/Wv matrix.
+
+    The propagated values are exact single-coordinate contributions before
+    key normalization: ``||W[:, d] * (native[d] - mapped[d])||``.
+    """
+    native = native.detach().float().cpu().flatten()
+    mapped = mapped.detach().float().cpu().flatten()
+    delta = native - mapped
+    absolute_delta = delta.abs()
+    wk_norms: list[torch.Tensor] = []
+    wv_norms: list[torch.Tensor] = []
+    for block in blocks:
+        weight = block.cross_attn.kv_linear.weight.detach().float().cpu()
+        channels = weight.shape[0] // 2
+        if weight.shape[0] != 2 * channels or weight.shape[1] != delta.numel():
+            raise ValueError("Unexpected SANA kv_linear dimensions during token attribution")
+        wk_norms.append(weight[:channels].norm(dim=0))
+        wv_norms.append(weight[channels:].norm(dim=0))
+    wk = torch.stack(wk_norms)
+    wv = torch.stack(wv_norms)
+    propagated_k = wk * absolute_delta.unsqueeze(0)
+    propagated_v = wv * absolute_delta.unsqueeze(0)
+    mean_propagated_k = propagated_k.mean(dim=0)
+    mean_propagated_v = propagated_v.mean(dim=0)
+
+    def row(dimension: int) -> dict[str, Any]:
+        per_block = []
+        for block_index in range(len(blocks)):
+            per_block.append(
+                {
+                    "block": int(block_index),
+                    "wk_column_l2": float(wk[block_index, dimension]),
+                    "wv_column_l2": float(wv[block_index, dimension]),
+                    "propagated_k_error": float(propagated_k[block_index, dimension]),
+                    "propagated_v_error": float(propagated_v[block_index, dimension]),
+                }
+            )
+        native_value = native[dimension]
+        mapped_value = mapped[dimension]
+        return {
+            "dimension": int(dimension),
+            "native_value": float(native_value),
+            "mapped_value": float(mapped_value),
+            "input_error": float(absolute_delta[dimension]),
+            "relative_error": float(
+                absolute_delta[dimension] / native_value.abs().clamp_min(1e-12)
+            ),
+            "sign_match": bool(
+                torch.signbit(native_value) == torch.signbit(mapped_value)
+            ),
+            "mean_wk_column_l2": float(wk[:, dimension].mean()),
+            "maximum_wk_column_l2": float(wk[:, dimension].max()),
+            "mean_wv_column_l2": float(wv[:, dimension].mean()),
+            "maximum_wv_column_l2": float(wv[:, dimension].max()),
+            "mean_propagated_k_error": float(mean_propagated_k[dimension]),
+            "maximum_propagated_k_error": float(propagated_k[:, dimension].max()),
+            "mean_propagated_v_error": float(mean_propagated_v[dimension]),
+            "maximum_propagated_v_error": float(propagated_v[:, dimension].max()),
+            "per_block": per_block,
+        }
+
+    count = min(max(int(top_n), 0), delta.numel())
+    if not count:
+        return {
+            "definition": "Attribution is measured before key normalization.",
+            "top_by_input_error": [],
+            "top_by_propagated_k_error": [],
+            "top_by_propagated_v_error": [],
+        }
+    return {
+        "definition": (
+            "propagated_{k,v}_error = ||W{k,v}[:, d] * "
+            "(native[d] - mapped[d])|| before key normalization"
+        ),
+        "top_by_input_error": [
+            row(index)
+            for index in torch.topk(absolute_delta, k=count).indices.tolist()
+        ],
+        "top_by_propagated_k_error": [
+            row(index)
+            for index in torch.topk(mean_propagated_k, k=count).indices.tolist()
+        ],
+        "top_by_propagated_v_error": [
+            row(index)
+            for index in torch.topk(mean_propagated_v, k=count).indices.tolist()
+        ],
+    }
+
+
+def _mean(values: list[float]) -> float | None:
+    return float(sum(values) / len(values)) if values else None
+
+
+def _token_attention_block_rows(
+    *,
+    native_records: list[dict[str, torch.Tensor]],
+    mapped_records: list[dict[str, torch.Tensor]],
+    active_token_count: int,
+    top_k: int = 3,
+) -> list[list[dict[str, Any]]]:
+    """Return fixed-native-Q attention and contribution metrics per token/block."""
+    rows_by_token: list[list[dict[str, Any]]] = [
+        [] for _ in range(active_token_count)
+    ]
+    for block_index, (native_record, mapped_record) in enumerate(
+        zip(native_records, mapped_records)
+    ):
+        query = native_record["query"].float()
+        native_key = native_record["key_without_bias"].float()
+        mapped_key = mapped_record["key_without_bias"].float()
+        native_value = native_record["value"].float()
+        mapped_value = mapped_record["value"].float()
+        if native_key.shape[-2] != active_token_count:
+            raise ValueError(
+                "Captured cross-attention token count does not match common active tokens: "
+                f"{native_key.shape[-2]} vs {active_token_count}"
+            )
+        scale = math.sqrt(query.shape[-1])
+        native_logits = torch.matmul(query, native_key.transpose(-2, -1)) / scale
+        mapped_logits = torch.matmul(query, mapped_key.transpose(-2, -1)) / scale
+        native_attention = torch.softmax(native_logits, dim=-1)
+        mapped_attention = torch.softmax(mapped_logits, dim=-1)
+        native_argmax = native_attention.argmax(dim=-1)
+        mapped_argmax = mapped_attention.argmax(dim=-1)
+        selected_top_k = min(max(int(top_k), 1), active_token_count)
+        native_top = native_attention.topk(selected_top_k, dim=-1).indices
+        mapped_top = mapped_attention.topk(selected_top_k, dim=-1).indices
+
+        for token_offset in range(active_token_count):
+            native_token_logits = native_logits[..., token_offset]
+            mapped_token_logits = mapped_logits[..., token_offset]
+            native_probability = native_attention[..., token_offset]
+            mapped_probability = mapped_attention[..., token_offset]
+            probability_difference = mapped_probability - native_probability
+            logit_difference = mapped_token_logits - native_token_logits
+            query_head_instances = native_probability.numel()
+            native_argmax_count = int((native_argmax == token_offset).sum())
+            mapped_argmax_count = int((mapped_argmax == token_offset).sum())
+            native_top_k_count = int(
+                (native_top == token_offset).any(dim=-1).sum()
+            )
+            mapped_top_k_count = int(
+                (mapped_top == token_offset).any(dim=-1).sum()
+            )
+
+            native_contribution = (
+                native_probability.unsqueeze(-1)
+                * native_value[:, :, token_offset, :].unsqueeze(-2)
+            )
+            mapped_contribution = (
+                mapped_probability.unsqueeze(-1)
+                * mapped_value[:, :, token_offset, :].unsqueeze(-2)
+            )
+            contribution = _compare_tensors(
+                native_contribution, mapped_contribution
+            )
+            value = _compare_tensors(
+                native_value[:, :, token_offset, :],
+                mapped_value[:, :, token_offset, :],
+            )
+            rows_by_token[token_offset].append(
+                {
+                    "block": int(block_index),
+                    "native_logit_mean": float(native_token_logits.mean()),
+                    "mapped_logit_mean": float(mapped_token_logits.mean()),
+                    "mean_logit_difference": float(logit_difference.mean()),
+                    "mean_absolute_logit_difference": float(
+                        logit_difference.abs().mean()
+                    ),
+                    "maximum_absolute_logit_difference": float(
+                        logit_difference.abs().max()
+                    ),
+                    "native_attention_probability_mean": float(
+                        native_probability.mean()
+                    ),
+                    "native_attention_probability_maximum": float(
+                        native_probability.max()
+                    ),
+                    "mapped_attention_probability_mean": float(
+                        mapped_probability.mean()
+                    ),
+                    "mapped_attention_probability_maximum": float(
+                        mapped_probability.max()
+                    ),
+                    "mean_attention_probability_difference": float(
+                        probability_difference.mean()
+                    ),
+                    "mean_absolute_attention_probability_difference": float(
+                        probability_difference.abs().mean()
+                    ),
+                    "maximum_absolute_attention_probability_difference": float(
+                        probability_difference.abs().max()
+                    ),
+                    "native_argmax_frequency": float(
+                        native_argmax_count / query_head_instances
+                    ),
+                    "native_argmax_count": native_argmax_count,
+                    "mapped_argmax_frequency": float(
+                        mapped_argmax_count / query_head_instances
+                    ),
+                    "mapped_argmax_count": mapped_argmax_count,
+                    "native_top_k_frequency": float(
+                        native_top_k_count / query_head_instances
+                    ),
+                    "native_top_k_count": native_top_k_count,
+                    "mapped_top_k_frequency": float(
+                        mapped_top_k_count / query_head_instances
+                    ),
+                    "mapped_top_k_count": mapped_top_k_count,
+                    "query_head_instances": int(query_head_instances),
+                    "top_k": int(selected_top_k),
+                    "value_cosine": value["cosine_similarity"],
+                    "value_relative_l2_error": value["relative_l2_error"],
+                    "native_contribution_norm": contribution["native_norm"],
+                    "mapped_contribution_norm": contribution["mapped_norm"],
+                    "contribution_cosine": contribution["cosine_similarity"],
+                    "contribution_relative_l2_error": contribution[
+                        "relative_l2_error"
+                    ],
+                }
+            )
+    return rows_by_token
+
+
+def _cohort_summary(
+    name: str, rows: list[dict[str, Any]]
+) -> dict[str, Any]:
+    def values(path: tuple[str, ...]) -> list[float]:
+        selected: list[float] = []
+        for row in rows:
+            value: Any = row
+            for key in path:
+                value = value[key]
+            if value is not None:
+                selected.append(float(value))
+        return selected
+
+    return {
+        "cohort": name,
+        "token_count": len(rows),
+        "token_indices": [row["token_index"] for row in rows],
+        "mean_raw_cosine": _mean(values(("raw_cosine",))),
+        "mean_post_gelu_cosine": _mean(values(("post_gelu_cosine",))),
+        "mean_post_rmsnorm_cosine": _mean(values(("post_rmsnorm_cosine",))),
+        "mean_k_cosine_without_bias": _mean(
+            values(("mean_k_cosine_without_bias",))
+        ),
+        "mean_v_cosine": _mean(values(("mean_v_cosine",))),
+        "mean_relative_l2_error": _mean(values(("relative_l2_error",))),
+        "mean_top_dimension_absolute_error": _mean(
+            values(("top_dimension_summary", "mean_input_error"))
+        ),
+        "mean_wk_importance_of_top_error_dimensions": _mean(
+            values(("top_dimension_summary", "mean_wk_column_l2"))
+        ),
+        "mean_wv_importance_of_top_error_dimensions": _mean(
+            values(("top_dimension_summary", "mean_wv_column_l2"))
+        ),
+        "mean_propagated_k_error": _mean(
+            values(("top_dimension_summary", "mean_propagated_k_error"))
+        ),
+        "mean_propagated_v_error": _mean(
+            values(("top_dimension_summary", "mean_propagated_v_error"))
+        ),
+        "mean_native_attention_probability": _mean(
+            values(("attention", "native_probability_mean_across_blocks"))
+        ),
+        "mean_native_argmax_frequency": _mean(
+            values(("attention", "native_argmax_frequency_across_blocks"))
+        ),
+        "mean_contribution_relative_l2_error": _mean(
+            values(("attention", "contribution_relative_l2_error_across_blocks"))
+        ),
+    }
+
+
+def _build_token_importance_diagnostics(
+    *,
+    native_stages: dict[str, torch.Tensor],
+    mapped_stages: dict[str, torch.Tensor],
+    native_keys_without_bias: list[torch.Tensor],
+    mapped_keys_without_bias: list[torch.Tensor],
+    native_values: list[torch.Tensor],
+    mapped_values: list[torch.Tensor],
+    native_records: list[dict[str, torch.Tensor]],
+    mapped_records: list[dict[str, torch.Tensor]],
+    common_mask: torch.Tensor,
+    token_labels: list[list[str]] | None,
+    blocks,
+    top_n_dimensions: int,
+    worst_token_count: int,
+) -> dict[str, Any]:
+    """Join mapping errors, learned K/V sensitivity, and actual attention use."""
+    if common_mask.shape[0] != 1:
+        return {
+            "skipped": True,
+            "reason": (
+                "Token-level functional attribution currently requires the single-prompt "
+                "debug mode because SANA packs multi-sample text tokens."
+            ),
+        }
+    active_positions = torch.nonzero(common_mask[0], as_tuple=False).flatten().tolist()
+    functional_rows = _token_attention_block_rows(
+        native_records=native_records,
+        mapped_records=mapped_records,
+        active_token_count=len(active_positions),
+    )
+    tokens: list[dict[str, Any]] = []
+    for active_offset, token_index in enumerate(active_positions):
+        stage_metrics = {
+            name: _single_vector_metrics(
+                native_stages[name][0, token_index],
+                mapped_stages[name][0, token_index],
+            )
+            for name in native_stages
+        }
+        key_metrics = [
+            _single_vector_metrics(native[0, token_index], mapped[0, token_index])
+            for native, mapped in zip(
+                native_keys_without_bias, mapped_keys_without_bias
+            )
+        ]
+        value_metrics = [
+            _single_vector_metrics(native[0, token_index], mapped[0, token_index])
+            for native, mapped in zip(native_values, mapped_values)
+        ]
+        dimensions = {
+            "before_gelu": {
+                "direct_wk_wv_attribution_applicable": False,
+                "top_by_absolute_error": _coordinate_error_rows(
+                    native_stages["after_fc1"][0, token_index],
+                    mapped_stages["after_fc1"][0, token_index],
+                    top_n=top_n_dimensions,
+                ),
+            },
+            "after_gelu": {
+                "direct_wk_wv_attribution_applicable": False,
+                "top_by_absolute_error": _coordinate_error_rows(
+                    native_stages["after_gelu"][0, token_index],
+                    mapped_stages["after_gelu"][0, token_index],
+                    top_n=top_n_dimensions,
+                ),
+            },
+            "after_rmsnorm": _rms_dimension_attribution(
+                native_stages["after_rmsnorm"][0, token_index],
+                mapped_stages["after_rmsnorm"][0, token_index],
+                blocks=blocks,
+                top_n=top_n_dimensions,
+            ),
+        }
+        top_dimension_rows = dimensions["after_rmsnorm"]["top_by_input_error"]
+        block_attention = functional_rows[active_offset]
+        strongest_attention_change = max(
+            block_attention,
+            key=lambda row: row[
+                "mean_absolute_attention_probability_difference"
+            ],
+        )
+        label = (
+            token_labels[0][token_index] if token_labels is not None else None
+        )
+        token = {
+            "batch_index": 0,
+            "token_index": int(token_index),
+            "active_token_offset": int(active_offset),
+            "decoded_token": label,
+            "stage_metrics": stage_metrics,
+            "raw_cosine": stage_metrics["raw_embedding"]["cosine"],
+            "after_fc1_cosine": stage_metrics["after_fc1"]["cosine"],
+            "post_gelu_cosine": stage_metrics["after_gelu"]["cosine"],
+            "after_fc2_cosine": stage_metrics["after_fc2"]["cosine"],
+            "post_rmsnorm_cosine": stage_metrics["after_rmsnorm"]["cosine"],
+            "relative_l2_error": stage_metrics["after_rmsnorm"][
+                "relative_l2_error"
+            ],
+            "mean_k_cosine_without_bias": _mean(
+                [metric["cosine"] for metric in key_metrics]
+            ),
+            "minimum_k_cosine_without_bias": min(
+                metric["cosine"] for metric in key_metrics
+            ),
+            "mean_v_cosine": _mean(
+                [metric["cosine"] for metric in value_metrics]
+            ),
+            "minimum_v_cosine": min(metric["cosine"] for metric in value_metrics),
+            "k_without_bias_by_block": [
+                {"block": index, **metric}
+                for index, metric in enumerate(key_metrics)
+            ],
+            "v_by_block": [
+                {"block": index, **metric}
+                for index, metric in enumerate(value_metrics)
+            ],
+            "dimension_errors": dimensions,
+            "top_dimension_summary": {
+                "dimension_count": len(top_dimension_rows),
+                "mean_input_error": _mean(
+                    [row["input_error"] for row in top_dimension_rows]
+                ),
+                "mean_wk_column_l2": _mean(
+                    [row["mean_wk_column_l2"] for row in top_dimension_rows]
+                ),
+                "mean_wv_column_l2": _mean(
+                    [row["mean_wv_column_l2"] for row in top_dimension_rows]
+                ),
+                "mean_propagated_k_error": _mean(
+                    [
+                        row["mean_propagated_k_error"]
+                        for row in top_dimension_rows
+                    ]
+                ),
+                "mean_propagated_v_error": _mean(
+                    [
+                        row["mean_propagated_v_error"]
+                        for row in top_dimension_rows
+                    ]
+                ),
+            },
+            "attention": {
+                "native_probability_mean_across_blocks": _mean(
+                    [
+                        row["native_attention_probability_mean"]
+                        for row in block_attention
+                    ]
+                ),
+                "native_probability_maximum_across_blocks": max(
+                    row["native_attention_probability_maximum"]
+                    for row in block_attention
+                ),
+                "mapped_probability_mean_across_blocks": _mean(
+                    [
+                        row["mapped_attention_probability_mean"]
+                        for row in block_attention
+                    ]
+                ),
+                "native_argmax_frequency_across_blocks": _mean(
+                    [row["native_argmax_frequency"] for row in block_attention]
+                ),
+                "native_top_k_frequency_across_blocks": _mean(
+                    [row["native_top_k_frequency"] for row in block_attention]
+                ),
+                "mean_absolute_probability_change_across_blocks": _mean(
+                    [
+                        row["mean_absolute_attention_probability_difference"]
+                        for row in block_attention
+                    ]
+                ),
+                "contribution_cosine_across_blocks": _mean(
+                    [row["contribution_cosine"] for row in block_attention]
+                ),
+                "contribution_relative_l2_error_across_blocks": _mean(
+                    [
+                        row["contribution_relative_l2_error"]
+                        for row in block_attention
+                    ]
+                ),
+                "strongest_attention_change": strongest_attention_change,
+                "per_block": block_attention,
+            },
+        }
+        tokens.append(token)
+
+    ranked = sorted(tokens, key=lambda row: row["post_rmsnorm_cosine"])
+    for rank, row in enumerate(ranked, start=1):
+        row["rank_worst_to_best"] = rank
+
+    cohort_size = max(1, math.ceil(0.1 * len(ranked)))
+    worst = ranked[:cohort_size]
+    best_start = max(cohort_size, len(ranked) - cohort_size)
+    middle = ranked[cohort_size:best_start]
+    best = ranked[best_start:]
+    cohorts = [
+        _cohort_summary("worst_10_percent", worst),
+        _cohort_summary("middle_80_percent", middle),
+        _cohort_summary("best_10_percent", best),
+    ]
+
+    repeated: list[dict[str, Any]] = []
+    by_label: dict[str, list[dict[str, Any]]] = {}
+    for row in tokens:
+        if row["decoded_token"] is not None:
+            by_label.setdefault(row["decoded_token"], []).append(row)
+    for label, occurrences in by_label.items():
+        if len(occurrences) < 2:
+            continue
+        occurrence_rows = []
+        for row in sorted(occurrences, key=lambda item: item["token_index"]):
+            occurrence_rows.append(
+                {
+                    "position": row["token_index"],
+                    "raw_cosine": row["raw_cosine"],
+                    "post_rmsnorm_cosine": row["post_rmsnorm_cosine"],
+                    "mean_k_cosine_without_bias": row[
+                        "mean_k_cosine_without_bias"
+                    ],
+                    "mean_v_cosine": row["mean_v_cosine"],
+                    "native_attention_probability": row["attention"][
+                        "native_probability_mean_across_blocks"
+                    ],
+                    "mapped_attention_probability": row["attention"][
+                        "mapped_probability_mean_across_blocks"
+                    ],
+                }
+            )
+        pairwise = []
+        for left_index in range(len(occurrences)):
+            for right_index in range(left_index + 1, len(occurrences)):
+                left = occurrences[left_index]["token_index"]
+                right = occurrences[right_index]["token_index"]
+                pairwise.append(
+                    {
+                        "positions": [left, right],
+                        "native_raw_occurrence_difference": _single_vector_metrics(
+                            native_stages["raw_embedding"][0, left],
+                            native_stages["raw_embedding"][0, right],
+                        ),
+                        "mapped_raw_occurrence_difference": _single_vector_metrics(
+                            mapped_stages["raw_embedding"][0, left],
+                            mapped_stages["raw_embedding"][0, right],
+                        ),
+                        "native_rms_occurrence_difference": _single_vector_metrics(
+                            native_stages["after_rmsnorm"][0, left],
+                            native_stages["after_rmsnorm"][0, right],
+                        ),
+                        "mapped_rms_occurrence_difference": _single_vector_metrics(
+                            mapped_stages["after_rmsnorm"][0, left],
+                            mapped_stages["after_rmsnorm"][0, right],
+                        ),
+                    }
+                )
+        repeated.append(
+            {
+                "decoded_token": label,
+                "occurrences": occurrence_rows,
+                "pairwise_context_difference": pairwise,
+            }
+        )
+
+    def normalized_rank(values: list[float], value: float) -> float:
+        if not values:
+            return 0.0
+        ordered = sorted(values)
+        # Keep the weakest factor non-zero so the combined score remains
+        # useful even when a prompt contains only a handful of active tokens.
+        return (ordered.index(value) + 1) / len(ordered)
+
+    mapping_values = [row["relative_l2_error"] for row in tokens]
+    sensitivity_values = [
+        row["top_dimension_summary"]["mean_propagated_k_error"]
+        + row["top_dimension_summary"]["mean_propagated_v_error"]
+        for row in tokens
+    ]
+    attention_values = [
+        row["attention"]["native_probability_mean_across_blocks"]
+        for row in tokens
+    ]
+    damaging: list[dict[str, Any]] = []
+    for row, sensitivity in zip(tokens, sensitivity_values):
+        severity_rank = normalized_rank(mapping_values, row["relative_l2_error"])
+        sensitivity_rank = normalized_rank(sensitivity_values, sensitivity)
+        attention_rank = normalized_rank(
+            attention_values,
+            row["attention"]["native_probability_mean_across_blocks"],
+        )
+        score = (severity_rank * sensitivity_rank * attention_rank) ** (1.0 / 3.0)
+        top_dimensions = row["dimension_errors"]["after_rmsnorm"][
+            "top_by_input_error"
+        ][:5]
+        damaging.append(
+            {
+                "token_index": row["token_index"],
+                "decoded_token": row["decoded_token"],
+                "damage_score": float(score),
+                "post_rmsnorm_cosine": row["post_rmsnorm_cosine"],
+                "relative_l2_error": row["relative_l2_error"],
+                "mean_k_cosine_without_bias": row[
+                    "mean_k_cosine_without_bias"
+                ],
+                "mean_v_cosine": row["mean_v_cosine"],
+                "native_attention_probability": row["attention"][
+                    "native_probability_mean_across_blocks"
+                ],
+                "native_attention_rank": 1
+                + sorted(attention_values, reverse=True).index(
+                    row["attention"]["native_probability_mean_across_blocks"]
+                ),
+                "top_bad_dimensions": [
+                    dimension["dimension"] for dimension in top_dimensions
+                ],
+                "mean_propagated_k_error": row["top_dimension_summary"][
+                    "mean_propagated_k_error"
+                ],
+                "mean_propagated_v_error": row["top_dimension_summary"][
+                    "mean_propagated_v_error"
+                ],
+                "strongest_attention_change": row["attention"][
+                    "strongest_attention_change"
+                ],
+                "likely_mechanism": (
+                    "mapping error -> sensitive Wk/Wv coordinates -> changed fixed-Q "
+                    "attention and/or value contribution"
+                ),
+            }
+        )
+    damaging.sort(key=lambda row: row["damage_score"], reverse=True)
+    severe_half = sorted(
+        tokens, key=lambda row: row["relative_l2_error"], reverse=True
+    )[: max(1, math.ceil(len(tokens) / 2))]
+    counterexamples = sorted(
+        severe_half,
+        key=lambda row: row["attention"][
+            "native_probability_mean_across_blocks"
+        ],
+    )[: max(1, min(worst_token_count, len(severe_half)))]
+    counterexamples = [
+        {
+            "token_index": row["token_index"],
+            "decoded_token": row["decoded_token"],
+            "relative_l2_error": row["relative_l2_error"],
+            "post_rmsnorm_cosine": row["post_rmsnorm_cosine"],
+            "native_attention_probability": row["attention"][
+                "native_probability_mean_across_blocks"
+            ],
+            "native_argmax_frequency": row["attention"][
+                "native_argmax_frequency_across_blocks"
+            ],
+        }
+        for row in counterexamples
+    ]
+    return {
+        "skipped": False,
+        "ranking_basis": "post-RMSNorm cosine, ascending (worst first)",
+        "attention_definition": (
+            "Fixed native Q; statistics aggregate batch, attention heads, and image queries."
+        ),
+        "tokens_ranked_worst_to_best": ranked,
+        "cohort_comparison": cohorts,
+        "repeated_token_comparison": repeated,
+        "most_damaging_token_errors": damaging[: max(1, worst_token_count)],
+        "badly_mapped_low_attention_counterexamples": counterexamples,
+    }
+
+
 def _iter_scalar_leaves(value: Any, path: str = ""):
     """Yield JSON-compatible scalar leaves for a comparison-friendly CSV."""
     if isinstance(value, dict):
@@ -466,8 +1173,26 @@ def _iter_scalar_leaves(value: Any, path: str = ""):
 def _save_structured_report(report: dict[str, Any], output_path: str | Path) -> tuple[Path, Path]:
     json_path = Path(output_path)
     csv_path = json_path.with_suffix(".csv")
+    token_csv_path = json_path.with_name(f"{json_path.stem}_tokens.csv")
+    dimension_csv_path = json_path.with_name(f"{json_path.stem}_dimensions.csv")
+    attention_csv_path = json_path.with_name(f"{json_path.stem}_attention.csv")
     json_path.parent.mkdir(parents=True, exist_ok=True)
-    report["artifacts"] = {"json": str(json_path), "csv": str(csv_path)}
+    diagnostics = report.get("token_importance_diagnostics", {})
+    has_token_diagnostics = diagnostics and not diagnostics.get("skipped", False)
+    report["artifacts"] = {
+        "json": str(json_path),
+        # Backward-compatible alias retained for earlier report consumers.
+        "csv": str(csv_path),
+        "scalar_csv": str(csv_path),
+    }
+    if has_token_diagnostics:
+        report["artifacts"].update(
+            {
+                "token_csv": str(token_csv_path),
+                "dimension_csv": str(dimension_csv_path),
+                "attention_csv": str(attention_csv_path),
+            }
+        )
 
     json_temporary = json_path.with_suffix(json_path.suffix + ".tmp")
     with open(json_temporary, "w", encoding="utf-8") as handle:
@@ -481,6 +1206,195 @@ def _save_structured_report(report: dict[str, Any], output_path: str | Path) -> 
         for path, value in _iter_scalar_leaves(report):
             writer.writerow({"path": path, "value": value})
     csv_temporary.replace(csv_path)
+
+    if has_token_diagnostics:
+        token_rows = diagnostics["tokens_ranked_worst_to_best"]
+        token_fields = (
+            "rank_worst_to_best",
+            "token_index",
+            "decoded_token",
+            "raw_cosine",
+            "after_fc1_cosine",
+            "post_gelu_cosine",
+            "after_fc2_cosine",
+            "post_rmsnorm_cosine",
+            "mean_k_cosine_without_bias",
+            "minimum_k_cosine_without_bias",
+            "mean_v_cosine",
+            "minimum_v_cosine",
+            "relative_l2_error",
+            "native_attention_probability",
+            "native_attention_maximum",
+            "native_argmax_frequency",
+            "native_top_k_frequency",
+            "mean_absolute_probability_change",
+            "contribution_cosine",
+            "contribution_relative_l2_error",
+        )
+        temporary = token_csv_path.with_suffix(token_csv_path.suffix + ".tmp")
+        with open(temporary, "w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=token_fields)
+            writer.writeheader()
+            for row in token_rows:
+                attention = row["attention"]
+                writer.writerow(
+                    {
+                        "rank_worst_to_best": row["rank_worst_to_best"],
+                        "token_index": row["token_index"],
+                        "decoded_token": row["decoded_token"],
+                        "raw_cosine": row["raw_cosine"],
+                        "after_fc1_cosine": row["after_fc1_cosine"],
+                        "post_gelu_cosine": row["post_gelu_cosine"],
+                        "after_fc2_cosine": row["after_fc2_cosine"],
+                        "post_rmsnorm_cosine": row["post_rmsnorm_cosine"],
+                        "mean_k_cosine_without_bias": row[
+                            "mean_k_cosine_without_bias"
+                        ],
+                        "minimum_k_cosine_without_bias": row[
+                            "minimum_k_cosine_without_bias"
+                        ],
+                        "mean_v_cosine": row["mean_v_cosine"],
+                        "minimum_v_cosine": row["minimum_v_cosine"],
+                        "relative_l2_error": row["relative_l2_error"],
+                        "native_attention_probability": attention[
+                            "native_probability_mean_across_blocks"
+                        ],
+                        "native_attention_maximum": attention[
+                            "native_probability_maximum_across_blocks"
+                        ],
+                        "native_argmax_frequency": attention[
+                            "native_argmax_frequency_across_blocks"
+                        ],
+                        "native_top_k_frequency": attention[
+                            "native_top_k_frequency_across_blocks"
+                        ],
+                        "mean_absolute_probability_change": attention[
+                            "mean_absolute_probability_change_across_blocks"
+                        ],
+                        "contribution_cosine": attention[
+                            "contribution_cosine_across_blocks"
+                        ],
+                        "contribution_relative_l2_error": attention[
+                            "contribution_relative_l2_error_across_blocks"
+                        ],
+                    }
+                )
+        temporary.replace(token_csv_path)
+
+        dimension_fields = (
+            "token_index",
+            "decoded_token",
+            "stage",
+            "ranking",
+            "dimension",
+            "native_value",
+            "mapped_value",
+            "input_error",
+            "relative_error",
+            "sign_match",
+            "mean_wk_column_l2",
+            "mean_wv_column_l2",
+            "mean_propagated_k_error",
+            "mean_propagated_v_error",
+        )
+        temporary = dimension_csv_path.with_suffix(
+            dimension_csv_path.suffix + ".tmp"
+        )
+        with open(temporary, "w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=dimension_fields)
+            writer.writeheader()
+            for token in token_rows:
+                dimensions = token["dimension_errors"]
+                for stage in ("before_gelu", "after_gelu"):
+                    for row in dimensions[stage]["top_by_absolute_error"]:
+                        writer.writerow(
+                            {
+                                "token_index": token["token_index"],
+                                "decoded_token": token["decoded_token"],
+                                "stage": stage,
+                                "ranking": "absolute_input_error",
+                                "dimension": row["dimension"],
+                                "native_value": row["native_value"],
+                                "mapped_value": row["mapped_value"],
+                                "input_error": row["absolute_error"],
+                                "relative_error": row["relative_error"],
+                                "sign_match": row["sign_match"],
+                            }
+                        )
+                rms = dimensions["after_rmsnorm"]
+                for ranking in (
+                    "top_by_input_error",
+                    "top_by_propagated_k_error",
+                    "top_by_propagated_v_error",
+                ):
+                    for row in rms[ranking]:
+                        writer.writerow(
+                            {
+                                "token_index": token["token_index"],
+                                "decoded_token": token["decoded_token"],
+                                "stage": "after_rmsnorm",
+                                "ranking": ranking,
+                                "dimension": row["dimension"],
+                                "native_value": row["native_value"],
+                                "mapped_value": row["mapped_value"],
+                                "input_error": row["input_error"],
+                                "relative_error": row["relative_error"],
+                                "sign_match": row["sign_match"],
+                                "mean_wk_column_l2": row[
+                                    "mean_wk_column_l2"
+                                ],
+                                "mean_wv_column_l2": row[
+                                    "mean_wv_column_l2"
+                                ],
+                                "mean_propagated_k_error": row[
+                                    "mean_propagated_k_error"
+                                ],
+                                "mean_propagated_v_error": row[
+                                    "mean_propagated_v_error"
+                                ],
+                            }
+                        )
+        temporary.replace(dimension_csv_path)
+
+        attention_fields = (
+            "token_index",
+            "decoded_token",
+            "block",
+            "native_logit_mean",
+            "mapped_logit_mean",
+            "mean_logit_difference",
+            "mean_absolute_logit_difference",
+            "native_attention_probability_mean",
+            "mapped_attention_probability_mean",
+            "mean_attention_probability_difference",
+            "mean_absolute_attention_probability_difference",
+            "native_argmax_frequency",
+            "mapped_argmax_frequency",
+            "native_top_k_frequency",
+            "mapped_top_k_frequency",
+            "value_cosine",
+            "value_relative_l2_error",
+            "native_contribution_norm",
+            "mapped_contribution_norm",
+            "contribution_cosine",
+            "contribution_relative_l2_error",
+        )
+        temporary = attention_csv_path.with_suffix(
+            attention_csv_path.suffix + ".tmp"
+        )
+        with open(temporary, "w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=attention_fields)
+            writer.writeheader()
+            for token in token_rows:
+                for row in token["attention"]["per_block"]:
+                    writer.writerow(
+                        {
+                            "token_index": token["token_index"],
+                            "decoded_token": token["decoded_token"],
+                            **{field: row[field] for field in attention_fields[2:]},
+                        }
+                    )
+        temporary.replace(attention_csv_path)
     return json_path, csv_path
 
 
@@ -784,6 +1698,8 @@ class SanaConditioningDebugger:
 
         native_values_by_block: list[torch.Tensor] = []
         mapped_values_by_block: list[torch.Tensor] = []
+        native_keys_without_bias_by_block: list[torch.Tensor] = []
+        mapped_keys_without_bias_by_block: list[torch.Tensor] = []
         projection_input_metric = _compare_tensors(
             native_conditioning_tokens,
             mapped_conditioning_tokens,
@@ -867,6 +1783,8 @@ class SanaConditioningDebugger:
                 value_bias_norm = float(kv_bias[channels:].detach().float().norm())
             native_values_by_block.append(native_value)
             mapped_values_by_block.append(mapped_value)
+            native_keys_without_bias_by_block.append(native_key_without_bias)
+            mapped_keys_without_bias_by_block.append(mapped_key_without_bias)
             report["blocks"].append(
                 {
                     "block": block_index,
@@ -1042,6 +1960,40 @@ class SanaConditioningDebugger:
                     native_record[stage_name], mapped_record[stage_name]
                 )
 
+        report["token_importance_diagnostics"] = (
+            _build_token_importance_diagnostics(
+                native_stages={
+                    "raw_embedding": native_tokens,
+                    "after_fc1": native_pre_gelu,
+                    "after_gelu": native_post_gelu,
+                    "after_fc2": _as_token_tensor(
+                        native_projected["caption_projection_fc2"]
+                    ),
+                    "after_rmsnorm": native_conditioning_tokens,
+                },
+                mapped_stages={
+                    "raw_embedding": mapped_tokens,
+                    "after_fc1": mapped_pre_gelu,
+                    "after_gelu": mapped_post_gelu,
+                    "after_fc2": _as_token_tensor(
+                        mapped_projected["caption_projection_fc2"]
+                    ),
+                    "after_rmsnorm": mapped_conditioning_tokens,
+                },
+                native_keys_without_bias=native_keys_without_bias_by_block,
+                mapped_keys_without_bias=mapped_keys_without_bias_by_block,
+                native_values=native_values_by_block,
+                mapped_values=mapped_values_by_block,
+                native_records=native_capture.records,
+                mapped_records=mapped_capture.records,
+                common_mask=common_mask,
+                token_labels=token_labels,
+                blocks=self.model.blocks,
+                top_n_dimensions=self.top_n_dimensions,
+                worst_token_count=self.worst_token_count,
+            )
+        )
+
         report["stages"]["denoiser_output_at_debug_timestep"] = _compare_tensors(
             native_common_output, mapped_common_output
         )
@@ -1051,6 +2003,13 @@ class SanaConditioningDebugger:
         if output_path is not None:
             json_path, csv_path = _save_structured_report(report, output_path)
             print(f"Full conditioning debug reports: {json_path}, {csv_path}")
+            artifacts = report.get("artifacts", {})
+            if "token_csv" in artifacts:
+                print(
+                    "Token diagnostics CSVs: "
+                    f"{artifacts['token_csv']}, {artifacts['dimension_csv']}, "
+                    f"{artifacts['attention_csv']}"
+                )
         return report
 
     @staticmethod
@@ -1221,6 +2180,84 @@ class SanaConditioningDebugger:
                 for row in rows
             )
             print(f"  {metric}: {rendered}")
+
+        diagnostics = report.get("token_importance_diagnostics")
+        if not diagnostics:
+            return
+        if diagnostics.get("skipped", False):
+            print("\nTOKEN IMPORTANCE DIAGNOSTICS SKIPPED")
+            print(f"  {diagnostics['reason']}")
+            return
+
+        print("\n==============================")
+        print("TOKEN IMPORTANCE DIAGNOSTICS")
+        print("==============================")
+        print(
+            "rank token/position       raw     GELU      RMS   K(no b)      V   relL2  native_attn"
+        )
+        ranked = diagnostics["tokens_ranked_worst_to_best"]
+        for row in ranked:
+            label = repr(row["decoded_token"])
+            token_position = f"{label}@{row['token_index']}"
+            print(
+                f"{row['rank_worst_to_best']:>4} {token_position:<18.18} "
+                f"{row['raw_cosine']:>7.3f} "
+                f"{row['post_gelu_cosine']:>8.3f} "
+                f"{row['post_rmsnorm_cosine']:>8.3f} "
+                f"{row['mean_k_cosine_without_bias']:>8.3f} "
+                f"{row['mean_v_cosine']:>6.3f} "
+                f"{row['relative_l2_error']:>8.3f} "
+                f"{row['attention']['native_probability_mean_across_blocks']:>11.3f}"
+            )
+
+        print("\nWorst/middle/best cohorts")
+        print("cohort                 n   RMS cos   V cos   prop K   prop V   native_attn")
+        for cohort in diagnostics["cohort_comparison"]:
+            def render(value: float | None) -> str:
+                return "    n/a" if value is None else f"{value:>7.3f}"
+
+            print(
+                f"{cohort['cohort']:<22} {cohort['token_count']:>2} "
+                f"{render(cohort['mean_post_rmsnorm_cosine'])} "
+                f"{render(cohort['mean_v_cosine'])} "
+                f"{render(cohort['mean_propagated_k_error'])} "
+                f"{render(cohort['mean_propagated_v_error'])} "
+                f"{render(cohort['mean_native_attention_probability'])}"
+            )
+
+        print("\nMOST DAMAGING TOKEN ERRORS")
+        for row in diagnostics["most_damaging_token_errors"]:
+            change = row["strongest_attention_change"]
+            print(
+                f"  {row['decoded_token']!r} position={row['token_index']} "
+                f"score={row['damage_score']:.3f} RMS_cos={row['post_rmsnorm_cosine']:.3f} "
+                f"attention_rank={row['native_attention_rank']}/{len(ranked)}"
+            )
+            print(
+                f"    dims={row['top_bad_dimensions']} "
+                f"propagated K/V={row['mean_propagated_k_error']:.4g}/"
+                f"{row['mean_propagated_v_error']:.4g}"
+            )
+            print(
+                f"    strongest block={change['block']} fixed-Q probability "
+                f"native={change['native_attention_probability_mean']:.4f} -> "
+                f"mapped={change['mapped_attention_probability_mean']:.4f}; "
+                f"contribution cos={change['contribution_cosine']:.4f} "
+                f"relL2={change['contribution_relative_l2_error']:.4f}"
+            )
+
+        repeated = diagnostics["repeated_token_comparison"]
+        if repeated:
+            print("\nRepeated lexical tokens")
+            for group in repeated:
+                rendered = ", ".join(
+                    f"pos={row['position']} RMS={row['post_rmsnorm_cosine']:.3f} "
+                    f"K={row['mean_k_cosine_without_bias']:.3f} "
+                    f"V={row['mean_v_cosine']:.3f} "
+                    f"attn={row['native_attention_probability']:.3f}"
+                    for row in group["occurrences"]
+                )
+                print(f"  {group['decoded_token']!r}: {rendered}")
 
 
 def debug_conditioning(

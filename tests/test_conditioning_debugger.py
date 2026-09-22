@@ -192,8 +192,31 @@ class ConditioningDebuggerTests(unittest.TestCase):
                 1e-6,
             )
             self.assertEqual(len(report["per_token_statistics"]["tokens"]), 2)
+            diagnostics = report["token_importance_diagnostics"]
+            self.assertFalse(diagnostics["skipped"])
+            self.assertEqual(
+                len(diagnostics["tokens_ranked_worst_to_best"]), 2
+            )
+            worst = diagnostics["tokens_ranked_worst_to_best"][0]
+            self.assertIn("dimension_errors", worst)
+            self.assertEqual(len(worst["attention"]["per_block"]), 2)
+            self.assertIn(
+                "mean_propagated_v_error",
+                worst["dimension_errors"]["after_rmsnorm"][
+                    "top_by_input_error"
+                ][0],
+            )
             self.assertTrue(output.is_file())
             self.assertTrue(output.with_suffix(".csv").is_file())
+            self.assertTrue(
+                output.with_name("conditioning_tokens.csv").is_file()
+            )
+            self.assertTrue(
+                output.with_name("conditioning_dimensions.csv").is_file()
+            )
+            self.assertTrue(
+                output.with_name("conditioning_attention.csv").is_file()
+            )
             saved = json.loads(output.read_text(encoding="utf-8"))
             self.assertTrue(saved["artifacts"]["csv"].endswith("conditioning.csv"))
 
