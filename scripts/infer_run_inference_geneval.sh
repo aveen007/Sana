@@ -14,6 +14,26 @@ default_projected_text_embeddings=''
 default_img_nums_per_sample=4
 default_batch_size=1
 
+# Preserve an explicit parent CUDA mask. Worker indices below are logical
+# indices inside this list, not necessarily physical GPU numbers.
+parent_cuda_visible_devices="${CUDA_VISIBLE_DEVICES:-}"
+
+resolve_worker_gpu() {
+  local logical_gpu_id=$1
+  if [ -z "$parent_cuda_visible_devices" ]; then
+    echo "$logical_gpu_id"
+    return 0
+  fi
+
+  local visible_devices
+  IFS=',' read -r -a visible_devices <<< "$parent_cuda_visible_devices"
+  if [ "$logical_gpu_id" -ge "${#visible_devices[@]}" ]; then
+    echo "Logical GPU $logical_gpu_id is outside CUDA_VISIBLE_DEVICES=$parent_cuda_visible_devices" >&2
+    return 1
+  fi
+  echo "${visible_devices[$logical_gpu_id]}"
+}
+
 # parser
 config_file=$1
 model_paths=$2
@@ -163,9 +183,10 @@ if [[ "$model_paths" == *.pth ]]; then
     cmd="${cmd//\{start_index\}/$start_index}"
     cmd="${cmd//\{end_index\}/$end_index}"
 
-    echo "Running on GPU $gpu_id: samples $start_index to $end_index"
+    launch_gpu=$(resolve_worker_gpu "$gpu_id") || exit 2
+    echo "Running logical GPU $gpu_id on CUDA device $launch_gpu: samples $start_index to $end_index"
     echo "cmd: $cmd"
-    eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd &
+    CUDA_VISIBLE_DEVICES="$launch_gpu" bash -c "$cmd" &
     pids+=("$!")
   done
   if ! wait_for_inference_jobs "${pids[@]}"; then

@@ -9,6 +9,26 @@ default_sample_nums=553
 report_to=wandb
 default_log_suffix_label=''
 
+# Preserve an explicit parent CUDA mask. Worker indices below are logical
+# indices inside this list, not necessarily physical GPU numbers.
+parent_cuda_visible_devices="${CUDA_VISIBLE_DEVICES:-}"
+
+resolve_worker_gpu() {
+  local logical_gpu_id=$1
+  if [ -z "$parent_cuda_visible_devices" ]; then
+    echo "$logical_gpu_id"
+    return 0
+  fi
+
+  local visible_devices
+  IFS=',' read -r -a visible_devices <<< "$parent_cuda_visible_devices"
+  if [ "$logical_gpu_id" -ge "${#visible_devices[@]}" ]; then
+    echo "Logical GPU $logical_gpu_id is outside CUDA_VISIBLE_DEVICES=$parent_cuda_visible_devices" >&2
+    return 1
+  fi
+  echo "${visible_devices[$logical_gpu_id]}"
+}
+
 # parser
 img_path=$1
 exp_names=$2
@@ -93,7 +113,8 @@ if [ "$geneval" = true ]; then
     cmd="${cmd//\{job_name\}/$job_name}"
     cmd="${cmd//\{gpu_id\}/0}"
     evaluation_failed=0
-    if ! eval CUDA_VISIBLE_DEVICES=0 $cmd > "${img_path}/${exp_name}_geneval_result.txt" 2>&1; then
+    launch_gpu=$(resolve_worker_gpu 0) || exit 2
+    if ! CUDA_VISIBLE_DEVICES="$launch_gpu" bash -c "$cmd" > "${img_path}/${exp_name}_geneval_result.txt" 2>&1; then
       evaluation_failed=1
     fi
     cat "${img_path}/${exp_name}_geneval_result.txt"
@@ -122,8 +143,9 @@ if [ "$geneval" = true ]; then
         cmd="${cmd_template//\{img_path\}/$img_path}"
         cmd="${cmd//\{exp_name\}/$exp_name}"
         cmd="${cmd//\{job_name\}/$job_name}"
-        echo "Running on GPU $gpu_id: $cmd"
-        eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd > "${img_path}/${exp_name}_geneval_result.txt" 2>&1 &
+        launch_gpu=$(resolve_worker_gpu "$gpu_id") || exit 2
+        echo "Running logical GPU $gpu_id on CUDA device $launch_gpu: $cmd"
+        CUDA_VISIBLE_DEVICES="$launch_gpu" bash -c "$cmd" > "${img_path}/${exp_name}_geneval_result.txt" 2>&1 &
         pids+=("$!")
 
         gpu_id=$(( (gpu_id + 1) % np ))
