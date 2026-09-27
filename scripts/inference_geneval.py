@@ -92,10 +92,40 @@ def load_projected_text_embeddings(
     bundle = torch.load(file_path, map_location="cpu", weights_only=True)
     if not isinstance(bundle, dict):
         raise TypeError("Projected text embedding file must contain a dictionary")
-    if "Y_pred" not in bundle:
-        raise KeyError("Projected text embedding file has no 'Y_pred' tensor")
+    compact_embeddings = bundle.get("Y_pred_active")
+    embeddings = bundle.get("Y_pred")
+    if embeddings is None and compact_embeddings is None:
+        raise KeyError("Projected text embedding file has neither 'Y_pred' nor 'Y_pred_active'")
+    if embeddings is not None and compact_embeddings is not None:
+        raise ValueError("Projected text embedding file cannot contain both 'Y_pred' and 'Y_pred_active'")
 
-    embeddings = bundle["Y_pred"]
+    if compact_embeddings is not None:
+        attention_mask = bundle.get("attention_mask", bundle.get("attention_masks"))
+        if not isinstance(attention_mask, torch.Tensor):
+            raise KeyError("Compact projected conditioning requires an 'attention_mask' tensor")
+        if attention_mask.shape != (len(prompt_texts), expected_sequence_length):
+            raise ValueError(
+                "Expected projected attention mask with shape "
+                f"({len(prompt_texts)}, {expected_sequence_length}), got {tuple(attention_mask.shape)}"
+            )
+        if not isinstance(compact_embeddings, torch.Tensor) or compact_embeddings.ndim != 2:
+            raise ValueError("'Y_pred_active' must have shape [active_token_count, hidden_dim]")
+        expected_active_shape = (int(attention_mask.sum()), expected_hidden_dim)
+        if compact_embeddings.shape != expected_active_shape:
+            raise ValueError(
+                f"Expected compact projected embeddings with shape {expected_active_shape}, "
+                f"got {tuple(compact_embeddings.shape)}"
+            )
+        embeddings = torch.zeros(
+            len(prompt_texts),
+            expected_sequence_length,
+            expected_hidden_dim,
+            dtype=compact_embeddings.dtype,
+        )
+        embeddings[attention_mask.bool()] = compact_embeddings
+        attention_mask = attention_mask.to(dtype=torch.uint8).contiguous()
+        mode = "native_sequence"
+
     if not isinstance(embeddings, torch.Tensor):
         raise ValueError("'Y_pred' must be a tensor")
     if not embeddings.is_floating_point():
@@ -103,7 +133,9 @@ def load_projected_text_embeddings(
     if embeddings.ndim == 4 and embeddings.shape[1] == 1:
         embeddings = embeddings.squeeze(1)
 
-    if embeddings.ndim == 2:
+    if compact_embeddings is not None:
+        expected_shape = (len(prompt_texts), expected_sequence_length, expected_hidden_dim)
+    elif embeddings.ndim == 2:
         expected_shape = (len(prompt_texts), expected_hidden_dim)
         mode = "pooled_repeat"
         attention_mask = None
