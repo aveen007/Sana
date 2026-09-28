@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--metadata", type=Path, default=DEFAULT_METADATA)
     parser.add_argument("--output-dir", type=Path, default=Path("output/text_embeddings/geneval_exact"))
+    parser.add_argument(
+        "--output-prefix",
+        default="geneval",
+        help="Prefix for the native conditioning and Kaggle-input filenames.",
+    )
     parser.add_argument("--model-id", help="Override the text encoder selected by the config")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--batch-size", type=int, default=8)
@@ -34,6 +39,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.batch_size <= 0:
         parser.error("--batch-size must be positive")
+    if not args.output_prefix or any(character in args.output_prefix for character in "/\\"):
+        parser.error("--output-prefix must be a non-empty filename prefix")
     return args
 
 
@@ -90,8 +97,8 @@ def main() -> None:
 
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    conditioning_path = output_dir / "geneval_native_exact.pt"
-    kaggle_path = output_dir / "geneval_exact_inputs.jsonl"
+    conditioning_path = output_dir / f"{args.output_prefix}_native_exact.pt"
+    kaggle_path = output_dir / f"{args.output_prefix}_exact_inputs.jsonl"
     if not args.force:
         existing = [str(path) for path in (conditioning_path, kaggle_path) if path.exists()]
         if existing:

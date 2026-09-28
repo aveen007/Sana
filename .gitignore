@@ -202,6 +202,8 @@ cython_debug/
 checkpoints
 .deepspeed*
 prompts
+!tools/metrics/geneval/prompts/
+!tools/metrics/geneval/prompts/alternate_object_names.tsv
 
 results/
 # Sana-WM: internal-only test scripts (kept locally, never shipped)
