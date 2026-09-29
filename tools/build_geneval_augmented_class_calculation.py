@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Add disjoint ImageNet-21K classes to the exact GenEval calculation set.
+"""Repeat exact GenEval prompt structures with disjoint ImageNet-21K classes.
 
-The existing alternate-class GenEval rows are retained unchanged. Each new
-class contributes one prompt using GenEval's native single-object structure,
-``a photo of a/an <class>``. Official GenEval classes are excluded so the
-benchmark remains held out. The pinned ImageNet-21K label list is downloaded
-with the Python standard library and verified by SHA-256; no package install or
-model weights are needed.
+The existing 80-class alternate bank is retained. Additional classes fill the
+object slots of repeated original 553-row GenEval banks. Only object class names
+(plus their article/plural agreement) are changed; tags, task structure,
+attributes, counts, and relations stay native to GenEval. The normal
+exact-conditioning exporter supplies the same CHI prefix.
 """
 
 from __future__ import annotations
@@ -25,6 +24,7 @@ from typing import Any
 
 
 DEFAULT_OFFICIAL_METADATA = Path("tools/metrics/geneval/prompts/evaluation_metadata.jsonl")
+DEFAULT_ORIGINAL_CLASSES = Path("tools/metrics/geneval/evaluation/object_names.txt")
 DEFAULT_BASE_METADATA = Path(
     "output/text_embeddings/geneval_alternate_classes/evaluation_metadata_alternate_classes.jsonl"
 )
@@ -39,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-metadata", type=Path, default=DEFAULT_BASE_METADATA)
     parser.add_argument("--official-metadata", type=Path, default=DEFAULT_OFFICIAL_METADATA)
+    parser.add_argument("--original-classes", type=Path, default=DEFAULT_ORIGINAL_CLASSES)
     parser.add_argument("--alternate-classes", type=Path, default=DEFAULT_ALTERNATE_CLASSES)
     parser.add_argument("--additional-classes", type=int, default=1_000)
     parser.add_argument(
@@ -70,8 +71,13 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def read_alternate_classes(path: Path) -> set[str]:
-    classes = set()
+def read_original_classes(path: Path) -> list[str]:
+    with path.open(encoding="utf-8") as handle:
+        return [normalize(line) for line in handle if line.strip()]
+
+
+def read_alternate_classes(path: Path) -> list[tuple[str, str]]:
+    classes = []
     with path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, start=1):
             if not line.strip() or line.lstrip().startswith("#"):
@@ -79,7 +85,7 @@ def read_alternate_classes(path: Path) -> set[str]:
             fields = line.rstrip("\n").split("\t")
             if len(fields) != 2:
                 raise ValueError(f"Expected singular<TAB>plural at {path}:{line_number}")
-            classes.add(normalize(fields[0]))
+            classes.append((normalize(fields[0]), normalize(fields[1])))
     return classes
 
 
@@ -143,8 +149,121 @@ def select_classes(
     )
 
 
-def article(label: str) -> str:
-    return "an" if label[0] in "aeiou" else "a"
+IRREGULAR_PLURALS = {
+    "child": "children",
+    "foot": "feet",
+    "goose": "geese",
+    "man": "men",
+    "mouse": "mice",
+    "ox": "oxen",
+    "person": "people",
+    "tooth": "teeth",
+    "woman": "women",
+}
+
+
+def pluralize(label: str) -> str:
+    words = label.split()
+    final = words[-1]
+    if final in IRREGULAR_PLURALS:
+        words[-1] = IRREGULAR_PLURALS[final]
+    elif re.search(r"[^aeiou]y$", final):
+        words[-1] = final[:-1] + "ies"
+    elif re.search(r"(?:s|x|z|ch|sh)$", final):
+        words[-1] = final + "es"
+    else:
+        words[-1] = final + "s"
+    return " ".join(words)
+
+
+def article(phrase: str) -> str:
+    return "an" if phrase[0] in "aeiou" else "a"
+
+
+def noun_phrase(class_name: str, color: str | None = None) -> str:
+    phrase = f"{color} {class_name}" if color else class_name
+    return f"{article(phrase)} {phrase}"
+
+
+def number_word(value: int) -> str:
+    words = {2: "two", 3: "three", 4: "four"}
+    if value not in words:
+        raise ValueError(f"Unsupported GenEval count: {value}")
+    return words[value]
+
+
+def rebuild_prompt(row: dict[str, Any], plural_by_class: dict[str, str]) -> str:
+    tag = row["tag"]
+    include = row["include"]
+    if tag == "single_object":
+        return f"a photo of {noun_phrase(include[0]['class'])}"
+    if tag == "two_object":
+        return f"a photo of {noun_phrase(include[0]['class'])} and {noun_phrase(include[1]['class'])}"
+    if tag == "counting":
+        item = include[0]
+        return f"a photo of {number_word(int(item['count']))} {plural_by_class[item['class']]}"
+    if tag == "colors":
+        item = include[0]
+        return f"a photo of {noun_phrase(item['class'], item['color'])}"
+    if tag == "color_attr":
+        first, second = include
+        return (
+            f"a photo of {noun_phrase(first['class'], first['color'])} and "
+            f"{noun_phrase(second['class'], second['color'])}"
+        )
+    if tag == "position":
+        positioned = [item for item in include if item.get("position")]
+        if len(positioned) != 1:
+            raise ValueError(f"Expected one positioned object: {row}")
+        item = positioned[0]
+        relation, reference_index = item["position"]
+        reference = include[int(reference_index)]
+        return f"a photo of {noun_phrase(item['class'])} {relation} {noun_phrase(reference['class'])}"
+    raise ValueError(f"Unsupported GenEval tag: {tag!r}")
+
+
+def remap_prompt_bank_by_occurrence(
+    source_rows: list[dict[str, Any]],
+    replacements: list[str],
+    fallback_map: dict[str, str],
+    plural_by_class: dict[str, str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    from copy import deepcopy
+
+    output_rows = []
+    assignments = []
+    replacement_index = 0
+    for row_index, source_row in enumerate(source_rows):
+        row = deepcopy(source_row)
+        local_map = {}
+        for include_index, item in enumerate(row.get("include", [])):
+            original = normalize(item["class"])
+            if original not in local_map:
+                if replacement_index < len(replacements):
+                    replacement = replacements[replacement_index]
+                    replacement_index += 1
+                    assignments.append(
+                        {
+                            "row_index": row_index,
+                            "include_index": include_index,
+                            "original": original,
+                            "replacement": replacement,
+                        }
+                    )
+                else:
+                    replacement = fallback_map[original]
+                local_map[original] = replacement
+            item["class"] = local_map[original]
+        for item in row.get("exclude", []):
+            original = normalize(item["class"])
+            item["class"] = local_map.get(original, fallback_map[original])
+        row["prompt"] = rebuild_prompt(row, plural_by_class)
+        output_rows.append(row)
+    if replacement_index != len(replacements):
+        raise RuntimeError(
+            f"Prompt bank consumed {replacement_index:,}/{len(replacements):,} replacement classes"
+        )
+    return output_rows, assignments
 
 
 def atomic_write(path: Path, text: str) -> None:
@@ -157,9 +276,20 @@ def main() -> None:
     args = parse_args()
     base_rows = read_jsonl(args.base_metadata)
     official_rows = read_jsonl(args.official_metadata)
+    original_classes = read_original_classes(args.original_classes)
+    alternate_classes = read_alternate_classes(args.alternate_classes)
+    if len(original_classes) != len(alternate_classes):
+        raise ValueError(
+            f"Class counts differ: {len(original_classes)} original vs "
+            f"{len(alternate_classes)} alternate"
+        )
+    if len(base_rows) != len(official_rows):
+        raise ValueError(
+            f"Prompt bank sizes differ: {len(base_rows)} base vs {len(official_rows)} official"
+        )
 
     blocked = official_blocklist(official_rows)
-    blocked.update(read_alternate_classes(args.alternate_classes))
+    blocked.update(singular for singular, _ in alternate_classes)
     blocked.update(
         normalize(item["class"])
         for row in base_rows
@@ -167,14 +297,34 @@ def main() -> None:
     )
     additional_classes = select_classes(imagenet21k_classes(), blocked, args.additional_classes)
 
-    added_rows = [
-        {
-            "tag": "calculation_extra_single_object",
-            "include": [{"class": class_name, "count": 1}],
-            "prompt": f"a photo of {article(class_name)} {class_name}",
-        }
-        for class_name in additional_classes
-    ]
+    alternate_singulars = [singular for singular, _ in alternate_classes]
+    alternate_plurals = dict(alternate_classes)
+    fallback_map = dict(zip(original_classes, alternate_singulars, strict=True))
+    class_slots_per_bank = sum(
+        len({normalize(item["class"]) for item in row.get("include", [])})
+        for row in official_rows
+    )
+    added_rows = []
+    banks = []
+    for bank_index, start in enumerate(range(0, len(additional_classes), class_slots_per_bank)):
+        new_classes = additional_classes[start : start + class_slots_per_bank]
+        plural_by_class = dict(alternate_plurals)
+        plural_by_class.update({class_name: pluralize(class_name) for class_name in new_classes})
+        bank_rows, assignments = remap_prompt_bank_by_occurrence(
+            official_rows,
+            new_classes,
+            fallback_map,
+            plural_by_class,
+        )
+        added_rows.extend(bank_rows)
+        banks.append(
+            {
+                "bank_index": bank_index,
+                "new_class_count": len(new_classes),
+                "new_classes": new_classes,
+                "assignments": assignments,
+            }
+        )
     combined_rows = base_rows + added_rows
 
     official_classes = {
@@ -218,13 +368,22 @@ def main() -> None:
         "additional_class_count": len(additional_classes),
         "total_unique_class_count": len(combined_classes),
         "additional_classes": additional_classes,
-        "prompt_template": "a photo of a/an <class>",
+        "base_prompt_bank_count": 1,
+        "additional_prompt_bank_count": len(banks),
+        "prompts_per_bank": len(official_rows),
+        "class_slots_per_bank": class_slots_per_bank,
+        "prompt_source": str(args.official_metadata),
+        "prompt_policy": "repeat_exact_geneval_structures_and_replace_class_slots_only",
+        "chi_policy": "unchanged_and_supplied_by_exact_conditioning_exporter",
+        "banks": banks,
         "official_class_overlap": leaked,
     }
     atomic_write(manifest_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
     print(f"Base prompts: {len(base_rows):,}")
-    print(f"Additional visual classes/prompts: {len(added_rows):,}")
+    print(f"Additional classes: {len(additional_classes):,}")
+    print(f"Additional exact prompt banks: {len(banks):,}")
+    print(f"Additional prompts: {len(added_rows):,}")
     print(f"Total fitting prompts: {len(combined_rows):,}")
     print(f"Total unique calculation classes: {len(combined_classes):,}")
     print(f"Official class overlap: {len(leaked)}")
