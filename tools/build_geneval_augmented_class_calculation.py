@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
-"""Add disjoint ImageNet classes to the exact GenEval calculation set.
+"""Add disjoint ImageNet-21K classes to the exact GenEval calculation set.
 
 The existing alternate-class GenEval rows are retained unchanged. Each new
 class contributes one prompt using GenEval's native single-object structure,
 ``a photo of a/an <class>``. Official GenEval classes are excluded so the
-benchmark remains held out. The ImageNet labels come from torchvision's
-built-in weight metadata; no model weights or additional packages are needed.
+benchmark remains held out. The pinned ImageNet-21K label list is downloaded
+with the Python standard library and verified by SHA-256; no package install or
+model weights are needed.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
+import io
 import json
 import os
+import random
 import re
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +29,11 @@ DEFAULT_BASE_METADATA = Path(
     "output/text_embeddings/geneval_alternate_classes/evaluation_metadata_alternate_classes.jsonl"
 )
 DEFAULT_ALTERNATE_CLASSES = Path("tools/metrics/geneval/prompts/alternate_object_names.tsv")
+IMAGENET21K_LABELS_URL = (
+    "https://gist.githubusercontent.com/BIGBALLON/63d153b966f64a7dbf7a06d7a28396c2/raw/"
+    "imagenet21k_ids_with_classnames.csv"
+)
+IMAGENET21K_LABELS_SHA256 = "66e637be9c3dc9c6a3850ec04ceae807d7225aece331581a72b5ca681016829d"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -72,14 +83,29 @@ def read_alternate_classes(path: Path) -> set[str]:
     return classes
 
 
-def imagenet_classes() -> list[str]:
-    try:
-        from torchvision.models import ResNet50_Weights
-    except ImportError as exc:
+def imagenet21k_classes() -> list[tuple[str, set[str]]]:
+    with urllib.request.urlopen(IMAGENET21K_LABELS_URL, timeout=60) as response:
+        payload = response.read()
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if actual_sha256 != IMAGENET21K_LABELS_SHA256:
         raise RuntimeError(
-            "torchvision is required, but it should already be part of the SANA environment"
-        ) from exc
-    return [normalize(label) for label in ResNet50_Weights.DEFAULT.meta["categories"]]
+            "ImageNet-21K label checksum changed: "
+            f"expected {IMAGENET21K_LABELS_SHA256}, got {actual_sha256}"
+        )
+
+    candidates = []
+    text = payload.decode("utf-8")
+    for row in csv.reader(io.StringIO(text)):
+        if len(row) < 2 or not row[0].startswith("n"):
+            continue
+        aliases = {normalize(alias) for alias in row[1:] if normalize(alias)}
+        if aliases:
+            candidates.append((normalize(row[1]), aliases))
+    # The source follows WordNet taxonomy order. A fixed shuffle prevents the
+    # first N labels from being dominated by one branch while remaining fully
+    # reproducible.
+    random.Random(0).shuffle(candidates)
+    return candidates
 
 
 def official_blocklist(rows: list[dict[str, Any]]) -> set[str]:
@@ -99,21 +125,22 @@ def valid_visual_label(label: str) -> bool:
     )
 
 
-def select_classes(candidates: list[str], blocked: set[str], count: int) -> list[str]:
+def select_classes(
+    candidates: list[tuple[str, set[str]]], blocked: set[str], count: int
+) -> list[str]:
     selected = []
     seen = set(blocked)
-    for label in candidates:
-        if label in seen or not valid_visual_label(label):
+    for label, aliases in candidates:
+        if aliases.intersection(blocked) or label in seen or not valid_visual_label(label):
             continue
         selected.append(label)
-        seen.add(label)
+        seen.update(aliases)
         if len(selected) == count:
             return selected
-    print(
-        f"Warning: requested {count:,} classes, but ImageNet-1K contains only "
-        f"{len(selected):,} eligible labels after removing overlaps. Using all of them."
+    raise ValueError(
+        f"Only {len(selected):,} eligible disjoint ImageNet-21K classes were available; "
+        f"requested {count:,}"
     )
-    return selected
 
 
 def article(label: str) -> str:
@@ -138,7 +165,7 @@ def main() -> None:
         for row in base_rows
         for item in row.get("include", [])
     )
-    additional_classes = select_classes(imagenet_classes(), blocked, args.additional_classes)
+    additional_classes = select_classes(imagenet21k_classes(), blocked, args.additional_classes)
 
     added_rows = [
         {
@@ -179,7 +206,9 @@ def main() -> None:
     manifest = {
         "format_version": 1,
         "kind": "geneval_augmented_class_calculation_set",
-        "class_source": "torchvision ResNet50_Weights.DEFAULT ImageNet-1K categories",
+        "class_source": IMAGENET21K_LABELS_URL,
+        "class_source_sha256": IMAGENET21K_LABELS_SHA256,
+        "class_selection": "deterministic_shuffle_seed_0_then_filter",
         "base_metadata": str(args.base_metadata),
         "official_metadata": str(args.official_metadata),
         "base_prompt_count": len(base_rows),
