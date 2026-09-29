@@ -29,6 +29,7 @@ vis/*
 !sana_llava_token_aligned_nystrom_projector_bos_rightpad.pt
 !sana_llava_geneval_exact_projected_compact.pt
 !sana_llava_geneval_altclasses_projected_compact.pt
+!sana_llava_geneval_augmented2000_projected_compact.pt
 .gradio/
 *.db
 *.bin
