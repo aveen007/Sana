@@ -14,6 +14,7 @@ fi
 default_step=20
 default_sample_nums=553
 default_start_index=0
+default_img_nums_per_sample=4
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
 default_projected_text_embeddings=''
@@ -42,6 +43,10 @@ do
         ;;
         --start_index=*)
         start_index="${arg#*=}"
+        shift
+        ;;
+        --img_nums_per_sample=*)
+        img_nums_per_sample="${arg#*=}"
         shift
         ;;
         --sampling_algo=*)
@@ -122,6 +127,7 @@ np=${np:-$default_np}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
 start_index=${start_index:-$default_start_index}
+img_nums_per_sample=${img_nums_per_sample:-$default_img_nums_per_sample}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
 exist_time_prefix=${exist_time_prefix:-$default_exist_time_prefix}
 add_label=${add_label:-$default_add_label}
@@ -146,7 +152,7 @@ read -r -d '' cmd <<EOF
 bash scripts/infer_metric_run_inference_metric_geneval.sh $config_file $model_paths_file \
       --np=$np --inference_script=$inference_script --inference=$inference --geneval=$geneval \
       --step=$step --sample_nums=$sample_nums \
-      --start_index=$start_index \
+      --start_index=$start_index --img_nums_per_sample=$img_nums_per_sample \
       --exist_time_prefix=$exist_time_prefix --cfg_scale=$cfg_scale \
       --suffix_label=$suffix_label --add_label=$add_label \
       $projected_text_args \

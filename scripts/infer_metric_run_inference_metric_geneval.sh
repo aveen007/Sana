@@ -7,6 +7,7 @@ output_dir=output
 default_step=20                             # inference step for diffusion model
 default_sample_nums=553                   # inference first $sample_nums sample in list(json.keys())
 default_start_index=0
+default_img_nums_per_sample=4
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
 default_projected_text_embeddings=''
@@ -39,6 +40,10 @@ do
         ;;
         --start_index=*)
         start_index="${arg#*=}"
+        shift
+        ;;
+        --img_nums_per_sample=*)
+        img_nums_per_sample="${arg#*=}"
         shift
         ;;
         --sampling_algo=*)
@@ -126,6 +131,7 @@ step=${step:-$default_step}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
 start_index=${start_index:-$default_start_index}
+img_nums_per_sample=${img_nums_per_sample:-$default_img_nums_per_sample}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
 exist_time_prefix=${exist_time_prefix:-$default_exist_time_prefix}
 add_label=${add_label:-$default_add_label}
@@ -173,7 +179,7 @@ if [ "$inference" = true ]; then
   read -r -d '' cmd <<EOF
 bash scripts/infer_run_inference_geneval.sh $config_file $model_paths_file \
       --np=$np --inference_script=$inference_script --step=$step --sample_nums=$sample_nums \
-      --start_index=$start_index --add_label=$add_label \
+      --start_index=$start_index --img_nums_per_sample=$img_nums_per_sample --add_label=$add_label \
       $projected_text_args \
       --cfg_scale=$cfg_scale \
       --exist_time_prefix=$exist_time_prefix --if_save_dirname=true --sampling_algo=$sampling_algo \
