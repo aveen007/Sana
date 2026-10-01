@@ -8,6 +8,7 @@
 default_np=8    # number of GPUs to use
 default_step=20   # 14
 default_sample_nums=553
+default_start_index=0
 default_sampling_algo="flow_dpm-solver"
 default_add_label=''
 default_projected_text_embeddings=''
@@ -51,6 +52,10 @@ do
         ;;
         --sample_nums=*)
         sample_nums="${arg#*=}"
+        shift
+        ;;
+        --start_index=*)
+        start_index="${arg#*=}"
         shift
         ;;
         --img_nums_per_sample=*)
@@ -103,6 +108,7 @@ np=${np:-$default_np}
 sampling_algo=${sampling_algo:-$default_sampling_algo}
 cfg_scale=${cfg_scale:-4.5}
 sample_nums=${sample_nums:-$default_sample_nums}
+start_index=${start_index:-$default_start_index}
 add_label=${add_label:-$default_add_label}
 projected_text_embeddings=${projected_text_embeddings:-$default_projected_text_embeddings}
 ablation_key=${ablation_key:-''}
@@ -115,11 +121,21 @@ if ! [[ "$np" =~ ^[1-9][0-9]*$ ]]; then
   echo "--np must be a positive integer, got: $np" >&2
   exit 2
 fi
+if ! [[ "$start_index" =~ ^[0-9]+$ ]]; then
+  echo "--start_index must be a non-negative integer, got: $start_index" >&2
+  exit 2
+fi
+end_index=$((start_index + sample_nums))
+if [ "$end_index" -gt 553 ]; then
+  echo "Selected range [$start_index, $end_index) exceeds the 553 GenEval prompts" >&2
+  exit 2
+fi
 samples_per_gpu=$((sample_nums / np))
 
 echo "GPU count: $np"
 echo "Step: $step"
 echo "Sample numbers: $sample_nums"
+echo "Prompt range: $start_index to $end_index"
 echo "Image numbers per sample: $img_nums_per_sample"
 echo "Batch size: $batch_size"
 echo "Sampling Algo: $sampling_algo"
@@ -171,20 +187,20 @@ echo "==================== inferencing ===================="
 if [[ "$model_paths" == *.pth ]]; then
   pids=()
   for gpu_id in $(seq 0 $((np - 1))); do
-    start_index=$((gpu_id * samples_per_gpu))
-    end_index=$((start_index + samples_per_gpu))
+    worker_start_index=$((start_index + gpu_id * samples_per_gpu))
+    worker_end_index=$((worker_start_index + samples_per_gpu))
     if [ $gpu_id -eq $((np - 1)) ]; then
-      end_index=$sample_nums
+      worker_end_index=$end_index
     fi
 
     cmd="${cmd_template//\{config_file\}/$config_file}"
     cmd="${cmd//\{model_path\}/$model_paths}"
     cmd="${cmd//\{gpu_id\}/$gpu_id}"
-    cmd="${cmd//\{start_index\}/$start_index}"
-    cmd="${cmd//\{end_index\}/$end_index}"
+    cmd="${cmd//\{start_index\}/$worker_start_index}"
+    cmd="${cmd//\{end_index\}/$worker_end_index}"
 
     launch_gpu=$(resolve_worker_gpu "$gpu_id") || exit 2
-    echo "Running logical GPU $gpu_id on CUDA device $launch_gpu: samples $start_index to $end_index"
+    echo "Running logical GPU $gpu_id on CUDA device $launch_gpu: samples $worker_start_index to $worker_end_index"
     echo "cmd: $cmd"
     CUDA_VISIBLE_DEVICES="$launch_gpu" bash -c "$cmd" &
     pids+=("$!")
@@ -206,19 +222,19 @@ else
     if [ -n "$model_path" ] && ! [[ $model_path == \#* ]]; then
       pids=()
       for gpu_id in $(seq 0 $((np - 1))); do
-        start_index=$((gpu_id * samples_per_gpu))
-        end_index=$((start_index + samples_per_gpu))
+        worker_start_index=$((start_index + gpu_id * samples_per_gpu))
+        worker_end_index=$((worker_start_index + samples_per_gpu))
         if [ $gpu_id -eq $((np - 1)) ]; then
-          end_index=$sample_nums
+          worker_end_index=$end_index
         fi
 
         cmd="${cmd_template//\{config_file\}/$config_file}"
         cmd="${cmd//\{model_path\}/$model_path}"
         cmd="${cmd//\{gpu_id\}/$gpu_id}"
-        cmd="${cmd//\{start_index\}/$start_index}"
-        cmd="${cmd//\{end_index\}/$end_index}"
+        cmd="${cmd//\{start_index\}/$worker_start_index}"
+        cmd="${cmd//\{end_index\}/$worker_end_index}"
 
-        echo "Running on GPU $gpu_id: samples $start_index to $end_index"
+        echo "Running on GPU $gpu_id: samples $worker_start_index to $worker_end_index"
         eval CUDA_VISIBLE_DEVICES=$gpu_id $cmd &
         pids+=("$!")
       done
