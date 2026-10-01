@@ -353,6 +353,44 @@ def log_results(df_dict):
         print(f"% correct prompts: {df.groupby('metadata')['correct'].any().mean():.2%}")
         print()
 
+        prompt_groups = list(df.groupby("metadata", sort=False))
+        if len(prompt_groups) <= 30:
+            prompt_rows = []
+            for _, prompt_df in prompt_groups:
+                first = prompt_df.iloc[0]
+                prompt_index = os.path.basename(
+                    os.path.dirname(os.path.dirname(str(first["filename"])))
+                )
+                correct_images = int(prompt_df["correct"].sum())
+                image_count = len(prompt_df)
+                reasons = [
+                    str(reason).replace("\n", "; ")
+                    for reason in prompt_df.loc[~prompt_df["correct"], "reason"].tolist()
+                    if str(reason)
+                ]
+                prompt_rows.append(
+                    (
+                        int(prompt_index),
+                        str(first["tag"]),
+                        str(first["prompt"]),
+                        correct_images,
+                        image_count,
+                        reasons,
+                    )
+                )
+
+            print("Per-prompt results")
+            print("==================")
+            for prompt_index, tag, prompt, correct_images, image_count, reasons in sorted(prompt_rows):
+                status = "PASS" if correct_images else "FAIL"
+                print(
+                    f"[{prompt_index:03d}] {status} {correct_images}/{image_count} "
+                    f"{tag}: {prompt}"
+                )
+                if reasons:
+                    print(f"      reason: {' | '.join(reasons)}")
+            print()
+
         # By group
 
         task_scores = []
