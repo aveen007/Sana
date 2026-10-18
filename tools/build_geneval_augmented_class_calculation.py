@@ -1,56 +1,47 @@
 #!/usr/bin/env python3
-"""Repeat exact GenEval prompt structures with disjoint ImageNet-21K classes.
+"""Build a 7,000-class SANA calculation set from the native Gemma vocabulary.
 
-The existing 80-class alternate bank is retained. Additional classes fill the
-object slots of repeated original 553-row GenEval banks. Only object class names
-(plus their article/plural agreement) are changed; tags, task structure,
-attributes, counts, and relations stay native to GenEval. The normal
-exact-conditioning exporter supplies the same CHI prefix.
+All 80 official GenEval object classes are intentionally included. The remaining
+slots are filled with usable decoded surfaces from the native SANA/Gemma
+tokenizer, in token-ID order. Selected classes fill the object slots of repeated
+official 553-row GenEval banks. Only object class names (plus article/plural
+agreement) are changed; tags, task structure, attributes, counts, relations, and
+the CHI prefix used by the exact-conditioning exporter remain unchanged.
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
-import hashlib
-import io
+from collections import Counter
 import json
 import os
-import random
 import re
-import urllib.request
+import unicodedata
 from pathlib import Path
 from typing import Any
 
 
 DEFAULT_OFFICIAL_METADATA = Path("tools/metrics/geneval/prompts/evaluation_metadata.jsonl")
 DEFAULT_ORIGINAL_CLASSES = Path("tools/metrics/geneval/evaluation/object_names.txt")
-DEFAULT_BASE_METADATA = Path(
-    "output/text_embeddings/geneval_alternate_classes/evaluation_metadata_alternate_classes.jsonl"
-)
-DEFAULT_ALTERNATE_CLASSES = Path("tools/metrics/geneval/prompts/alternate_object_names.tsv")
-IMAGENET21K_LABELS_URL = (
-    "https://gist.githubusercontent.com/BIGBALLON/63d153b966f64a7dbf7a06d7a28396c2/raw/"
-    "imagenet21k_ids_with_classnames.csv"
-)
-IMAGENET21K_LABELS_SHA256 = "66e637be9c3dc9c6a3850ec04ceae807d7225aece331581a72b5ca681016829d"
+DEFAULT_MODEL_ID = "Efficient-Large-Model/gemma-2-2b-it"
+DEFAULT_TARGET_CLASS_COUNT = 7_000
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-metadata", type=Path, default=DEFAULT_BASE_METADATA)
     parser.add_argument("--official-metadata", type=Path, default=DEFAULT_OFFICIAL_METADATA)
     parser.add_argument("--original-classes", type=Path, default=DEFAULT_ORIGINAL_CLASSES)
-    parser.add_argument("--alternate-classes", type=Path, default=DEFAULT_ALTERNATE_CLASSES)
-    parser.add_argument("--additional-classes", type=int, default=1_000)
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID)
+    parser.add_argument("--target-classes", type=int, default=DEFAULT_TARGET_CLASS_COUNT)
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("output/text_embeddings/geneval_augmented_1000"),
+        default=Path("output/text_embeddings/geneval_vocab7000"),
     )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
-    if args.additional_classes <= 0:
-        parser.error("--additional-classes must be positive")
+    if args.target_classes <= 0:
+        parser.error("--target-classes must be positive")
     return args
 
 
@@ -76,53 +67,6 @@ def read_original_classes(path: Path) -> list[str]:
         return [normalize(line) for line in handle if line.strip()]
 
 
-def read_alternate_classes(path: Path) -> list[tuple[str, str]]:
-    classes = []
-    with path.open(encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            if not line.strip() or line.lstrip().startswith("#"):
-                continue
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) != 2:
-                raise ValueError(f"Expected singular<TAB>plural at {path}:{line_number}")
-            classes.append((normalize(fields[0]), normalize(fields[1])))
-    return classes
-
-
-def imagenet21k_classes() -> list[tuple[str, set[str]]]:
-    with urllib.request.urlopen(IMAGENET21K_LABELS_URL, timeout=60) as response:
-        payload = response.read()
-    actual_sha256 = hashlib.sha256(payload).hexdigest()
-    if actual_sha256 != IMAGENET21K_LABELS_SHA256:
-        raise RuntimeError(
-            "ImageNet-21K label checksum changed: "
-            f"expected {IMAGENET21K_LABELS_SHA256}, got {actual_sha256}"
-        )
-
-    candidates = []
-    text = payload.decode("utf-8")
-    for row in csv.reader(io.StringIO(text)):
-        if len(row) < 2 or not row[0].startswith("n"):
-            continue
-        aliases = {normalize(alias) for alias in row[1:] if normalize(alias)}
-        if aliases:
-            candidates.append((normalize(row[1]), aliases))
-    # The source follows WordNet taxonomy order. A fixed shuffle prevents the
-    # first N labels from being dominated by one branch while remaining fully
-    # reproducible.
-    random.Random(0).shuffle(candidates)
-    return candidates
-
-
-def official_blocklist(rows: list[dict[str, Any]]) -> set[str]:
-    return {
-        normalize(item["class"])
-        for row in rows
-        for field in ("include", "exclude")
-        for item in row.get(field, [])
-    }
-
-
 def valid_visual_label(label: str) -> bool:
     return (
         2 <= len(label) <= 40
@@ -131,21 +75,95 @@ def valid_visual_label(label: str) -> bool:
     )
 
 
-def select_classes(
-    candidates: list[tuple[str, set[str]]], blocked: set[str], count: int
-) -> list[str]:
-    selected = []
-    seen = set(blocked)
-    for label, aliases in candidates:
-        if aliases.intersection(blocked) or label in seen or not valid_visual_label(label):
+def invalid_vocabulary_surface(surface: str) -> str | None:
+    if not surface:
+        return "empty_surface"
+    if "\ufffd" in surface:
+        return "unicode_replacement_character"
+    if any(unicodedata.category(character) == "Cc" for character in surface):
+        return "control_character"
+    if not valid_visual_label(normalize(surface)):
+        return "not_class_like"
+    return None
+
+
+def select_vocabulary_classes(
+    tokenizer: Any,
+    official_classes: list[str],
+    target_count: int,
+) -> tuple[list[str], list[dict[str, Any]], dict[str, int]]:
+    if len(official_classes) > target_count:
+        raise ValueError(
+            f"The {len(official_classes)} official classes exceed the "
+            f"requested total of {target_count}"
+        )
+
+    special_ids = {int(token_id) for token_id in tokenizer.all_special_ids}
+    vocabulary_by_id: dict[int, str] = {}
+    for token_string, token_id in tokenizer.get_vocab().items():
+        token_id = int(token_id)
+        vocabulary_by_id.setdefault(token_id, token_string)
+
+    selected = list(official_classes)
+    seen = set(selected)
+    records = [
+        {
+            "class_name": class_name,
+            "selection_source": "official_geneval",
+            "token_ids": tokenizer.encode(class_name, add_special_tokens=False),
+        }
+        for class_name in official_classes
+    ]
+    exclusions: Counter[str] = Counter()
+
+    for token_id in sorted(vocabulary_by_id):
+        if len(selected) == target_count:
+            break
+        if token_id in special_ids:
+            exclusions["special_token"] += 1
             continue
-        selected.append(label)
-        seen.update(aliases)
-        if len(selected) == count:
-            return selected
+
+        surface = tokenizer.decode(
+            [token_id],
+            skip_special_tokens=False,
+            clean_up_tokenization_spaces=False,
+        )
+        invalid_reason = invalid_vocabulary_surface(surface)
+        if invalid_reason is not None:
+            exclusions[invalid_reason] += 1
+            continue
+
+        class_name = normalize(surface)
+        if class_name in seen:
+            exclusions["duplicate_or_official_surface"] += 1
+            continue
+
+        prompt_context_ids = tokenizer.encode(
+            f"a photo of a {class_name}",
+            add_special_tokens=False,
+        )
+        if token_id not in prompt_context_ids:
+            exclusions["token_not_preserved_in_prompt_context"] += 1
+            continue
+
+        selected.append(class_name)
+        seen.add(class_name)
+        records.append(
+            {
+                "class_name": class_name,
+                "selection_source": "gemma_vocab_rank",
+                "token_id": token_id,
+                "token_string": vocabulary_by_id[token_id],
+                "decoded_surface": surface,
+                "prompt_context_token_ids": prompt_context_ids,
+            }
+        )
+
+    if len(selected) == target_count:
+        return selected, records, dict(exclusions)
     raise ValueError(
-        f"Only {len(selected):,} eligible disjoint ImageNet-21K classes were available; "
-        f"requested {count:,}"
+        f"Only {len(selected):,} usable unique classes were available from the "
+        f"tokenizer; requested {target_count:,}"
     )
 
 
@@ -274,41 +292,40 @@ def atomic_write(path: Path, text: str) -> None:
 
 def main() -> None:
     args = parse_args()
-    base_rows = read_jsonl(args.base_metadata)
     official_rows = read_jsonl(args.official_metadata)
     original_classes = read_original_classes(args.original_classes)
-    alternate_classes = read_alternate_classes(args.alternate_classes)
-    if len(original_classes) != len(alternate_classes):
-        raise ValueError(
-            f"Class counts differ: {len(original_classes)} original vs "
-            f"{len(alternate_classes)} alternate"
-        )
-    if len(base_rows) != len(official_rows):
-        raise ValueError(
-            f"Prompt bank sizes differ: {len(base_rows)} base vs {len(official_rows)} official"
-        )
-
-    blocked = official_blocklist(official_rows)
-    blocked.update(singular for singular, _ in alternate_classes)
-    blocked.update(
+    official_classes = {
         normalize(item["class"])
-        for row in base_rows
+        for row in official_rows
         for item in row.get("include", [])
-    )
-    additional_classes = select_classes(imagenet21k_classes(), blocked, args.additional_classes)
+    }
+    if set(original_classes) != official_classes:
+        raise ValueError(
+            "The official object-name file does not match the classes in the "
+            "official GenEval metadata"
+        )
 
-    alternate_singulars = [singular for singular, _ in alternate_classes]
-    alternate_plurals = dict(alternate_classes)
-    fallback_map = dict(zip(original_classes, alternate_singulars, strict=True))
+    from transformers import AutoTokenizer
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_id, use_fast=True)
+    calculation_classes, selection_records, exclusion_counts = select_vocabulary_classes(
+        tokenizer,
+        original_classes,
+        args.target_classes,
+    )
+    vocabulary_classes = calculation_classes[len(original_classes) :]
+
+    fallback_map = {class_name: class_name for class_name in original_classes}
+    official_plurals = {class_name: pluralize(class_name) for class_name in original_classes}
     class_slots_per_bank = sum(
         len({normalize(item["class"]) for item in row.get("include", [])})
         for row in official_rows
     )
     added_rows = []
     banks = []
-    for bank_index, start in enumerate(range(0, len(additional_classes), class_slots_per_bank)):
-        new_classes = additional_classes[start : start + class_slots_per_bank]
-        plural_by_class = dict(alternate_plurals)
+    for bank_index, start in enumerate(range(0, len(vocabulary_classes), class_slots_per_bank)):
+        new_classes = vocabulary_classes[start : start + class_slots_per_bank]
+        plural_by_class = dict(official_plurals)
         plural_by_class.update({class_name: pluralize(class_name) for class_name in new_classes})
         bank_rows, assignments = remap_prompt_bank_by_occurrence(
             official_rows,
@@ -325,21 +342,24 @@ def main() -> None:
                 "assignments": assignments,
             }
         )
-    combined_rows = base_rows + added_rows
+    combined_rows = official_rows + added_rows
 
-    official_classes = {
-        normalize(item["class"])
-        for row in official_rows
-        for item in row.get("include", [])
-    }
     combined_classes = {
         normalize(item["class"])
         for row in combined_rows
         for item in row.get("include", [])
     }
-    leaked = sorted(official_classes.intersection(combined_classes))
-    if leaked:
-        raise RuntimeError(f"Official classes leaked into calculation data: {leaked}")
+    expected_classes = set(calculation_classes)
+    if combined_classes != expected_classes:
+        missing = sorted(expected_classes.difference(combined_classes))
+        unexpected = sorted(combined_classes.difference(expected_classes))
+        raise RuntimeError(
+            f"Generated class set differs from selection; missing={missing}, "
+            f"unexpected={unexpected}"
+        )
+    official_overlap = sorted(official_classes.intersection(combined_classes))
+    if len(official_overlap) != len(original_classes):
+        raise RuntimeError("Not all official GenEval classes are present in the calculation set")
 
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -355,19 +375,26 @@ def main() -> None:
     )
     manifest = {
         "format_version": 1,
-        "kind": "geneval_augmented_class_calculation_set",
-        "class_source": IMAGENET21K_LABELS_URL,
-        "class_source_sha256": IMAGENET21K_LABELS_SHA256,
-        "class_selection": "deterministic_shuffle_seed_0_then_filter",
-        "base_metadata": str(args.base_metadata),
+        "kind": "geneval_native_vocab_calculation_set",
+        "class_source": f"{args.model_id} tokenizer vocabulary",
+        "class_selection": (
+            "all_official_geneval_classes_then_lowest_rank_usable_unique_"
+            "native_gemma_token_surfaces"
+        ),
+        "target_class_count": args.target_classes,
+        "target_model": args.model_id,
+        "tokenizer_vocab_size": len(tokenizer.get_vocab()),
         "official_metadata": str(args.official_metadata),
-        "base_prompt_count": len(base_rows),
+        "base_prompt_count": len(official_rows),
         "additional_prompt_count": len(added_rows),
         "total_prompt_count": len(combined_rows),
-        "base_unique_class_count": len(combined_classes.difference(additional_classes)),
-        "additional_class_count": len(additional_classes),
+        "base_unique_class_count": len(original_classes),
+        "vocabulary_class_count": len(vocabulary_classes),
         "total_unique_class_count": len(combined_classes),
-        "additional_classes": additional_classes,
+        "calculation_classes": calculation_classes,
+        "vocabulary_classes": vocabulary_classes,
+        "selection_records": selection_records,
+        "selection_exclusion_counts": exclusion_counts,
         "base_prompt_bank_count": 1,
         "additional_prompt_bank_count": len(banks),
         "prompts_per_bank": len(official_rows),
@@ -376,20 +403,23 @@ def main() -> None:
         "prompt_policy": "repeat_exact_geneval_structures_and_replace_class_slots_only",
         "chi_policy": "unchanged_and_supplied_by_exact_conditioning_exporter",
         "banks": banks,
-        "official_class_overlap": leaked,
+        "evaluation_classes_intentionally_included": True,
+        "seen_unseen_split": False,
+        "official_class_overlap": official_overlap,
     }
     atomic_write(manifest_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
 
-    print(f"Base prompts: {len(base_rows):,}")
-    print(f"Additional classes: {len(additional_classes):,}")
+    print(f"Official GenEval classes: {len(original_classes):,}")
+    print(f"Gemma vocabulary classes: {len(vocabulary_classes):,}")
+    print(f"Total unique calculation classes: {len(combined_classes):,}")
     print(f"Additional exact prompt banks: {len(banks):,}")
     print(f"Additional prompts: {len(added_rows):,}")
     print(f"Total fitting prompts: {len(combined_rows):,}")
-    print(f"Total unique calculation classes: {len(combined_classes):,}")
-    print(f"Official class overlap: {len(leaked)}")
+    print(f"Official class overlap: {len(official_overlap)} (intentional)")
+    print(f"Selection exclusions: {exclusion_counts}")
     print(f"Metadata: {metadata_path}")
     print(f"Manifest: {manifest_path}")
-    print(f"First additional classes: {additional_classes[:10]}")
+    print(f"First vocabulary classes: {vocabulary_classes[:10]}")
 
 
 if __name__ == "__main__":
