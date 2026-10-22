@@ -158,14 +158,32 @@ def main() -> None:
     with torch.inference_mode():
         for start in tqdm(range(0, len(rows), args.batch_size), desc="Embedding exact GenEval inputs"):
             end = min(start + args.batch_size, len(rows))
-            hidden = text_encoder(
-                encoded["input_ids"][start:end].to(device),
-                encoded["attention_mask"][start:end].to(device),
-            )[0]
-            selected_hidden = hidden.index_select(1, selected_device_index)
+            batch_input_ids = encoded["input_ids"][start:end]
+            batch_attention_mask = encoded["attention_mask"][start:end]
             if args.compact:
-                active_mask = selected_attention_mask[start:end].bool().to(device)
-                selected_hidden = selected_hidden[active_mask]
+                # Right-padding cannot affect active causal-token states. Avoid
+                # running Gemma over the hundreds of padded positions that are
+                # discarded by compact storage immediately afterward.
+                active_length = int(batch_attention_mask.sum(dim=1).max())
+                batch_input_ids = batch_input_ids[:, :active_length]
+                batch_attention_mask = batch_attention_mask[:, :active_length]
+            hidden = text_encoder(
+                batch_input_ids.to(device),
+                batch_attention_mask.to(device),
+            )[0]
+            if args.compact:
+                active_coordinates = torch.nonzero(
+                    selected_attention_mask[start:end].bool(),
+                    as_tuple=False,
+                )
+                batch_rows = active_coordinates[:, 0].to(device)
+                full_positions = selected_device_index.index_select(
+                    0,
+                    active_coordinates[:, 1].to(device),
+                )
+                selected_hidden = hidden[batch_rows, full_positions]
+            else:
+                selected_hidden = hidden.index_select(1, selected_device_index)
             embedding_parts.append(selected_hidden.to(device="cpu", dtype=compute_dtype))
     native_embeddings = torch.cat(embedding_parts).contiguous()
 
