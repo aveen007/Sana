@@ -1,0 +1,3697 @@
+{
+  "title": "TEXT CONDITIONING DEBUG",
+  "architecture": {
+    "model_class": "SanaMS",
+    "block_count": 28,
+    "caption_input_dimension": 2304,
+    "conditioning_dimension": 1152,
+    "path": [
+      "text_encoder_last_hidden_state",
+      "model_dtype_cast",
+      "CaptionEmbedder.y_proj.fc1",
+      "CaptionEmbedder.y_proj.activation",
+      "CaptionEmbedder.y_proj.fc2",
+      "attention_y_norm",
+      "attention_mask_or_xformers_packing",
+      "per_block_cross_attn.kv_linear",
+      "per_block_cross_attention"
+    ]
+  },
+  "prompt": "a photo of a bench",
+  "prompt_index": 0,
+  "mask_alignment": {
+    "native_active_tokens": 6,
+    "mapped_active_tokens": 5,
+    "common_active_tokens": 5,
+    "native_active_positions": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        5
+      ]
+    ],
+    "mapped_active_positions": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        5
+      ]
+    ],
+    "different_mask_positions": [
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "stages": {
+    "raw_full_sequence": {
+      "tensor_shape": [
+        1,
+        300,
+        2304
+      ],
+      "compared_vectors": 300,
+      "cosine_similarity": 0.014164171181619167,
+      "minimum_vector_cosine": 0.0,
+      "maximum_vector_cosine": 0.9644931554794312,
+      "mean_l2_distance": 130.41058349609375,
+      "native_norm": 131.296142578125,
+      "mapped_norm": 2.151602029800415,
+      "relative_norm_difference": 0.9836126565933228,
+      "per_vector_cosine": [
+        0.0,
+        0.6127671003341675,
+        0.8529816269874573,
+        0.9644931554794312,
+        0.9568783044815063,
+        0.862130880355835,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "raw_common_active_tokens": {
+      "tensor_shape": [
+        1,
+        300,
+        2304
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.8498501777648926,
+      "minimum_vector_cosine": 0.6127671003341675,
+      "maximum_vector_cosine": 0.9644930958747864,
+      "mean_l2_distance": 64.10554504394531,
+      "native_norm": 117.23955535888672,
+      "mapped_norm": 129.0961151123047,
+      "relative_norm_difference": 0.10113105177879333,
+      "per_vector_cosine": [
+        0.6127671003341675,
+        0.8529815673828125,
+        0.9644930958747864,
+        0.9568783044815063,
+        0.862130880355835
+      ]
+    },
+    "model_dtype_cast": {
+      "tensor_shape": [
+        1,
+        300,
+        2304
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.8498501777648926,
+      "minimum_vector_cosine": 0.6127671003341675,
+      "maximum_vector_cosine": 0.9644930958747864,
+      "mean_l2_distance": 64.10554504394531,
+      "native_norm": 117.23955535888672,
+      "mapped_norm": 129.0961151123047,
+      "relative_norm_difference": 0.10113105177879333,
+      "per_vector_cosine": [
+        0.6127671003341675,
+        0.8529815673828125,
+        0.9644930958747864,
+        0.9568783044815063,
+        0.862130880355835
+      ]
+    },
+    "caption_projection_fc1": {
+      "tensor_shape": [
+        1,
+        300,
+        1152
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.9444828033447266,
+      "minimum_vector_cosine": 0.8555423021316528,
+      "maximum_vector_cosine": 0.9807115793228149,
+      "mean_l2_distance": 457.32476806640625,
+      "native_norm": 1387.6478271484375,
+      "mapped_norm": 1445.75439453125,
+      "relative_norm_difference": 0.04187414422631264,
+      "per_vector_cosine": [
+        0.8555423021316528,
+        0.9547603130340576,
+        0.9807115793228149,
+        0.9784969687461853,
+        0.9529029130935669
+      ]
+    },
+    "caption_projection_activation": {
+      "tensor_shape": [
+        1,
+        300,
+        1152
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.585551381111145,
+      "minimum_vector_cosine": 0.21309560537338257,
+      "maximum_vector_cosine": 0.958899736404419,
+      "mean_l2_distance": 174.8575439453125,
+      "native_norm": 225.80308532714844,
+      "mapped_norm": 115.43196105957031,
+      "relative_norm_difference": 0.4887937009334564,
+      "per_vector_cosine": [
+        0.21309560537338257,
+        0.5994063019752502,
+        0.787484347820282,
+        0.958899736404419,
+        0.36887067556381226
+      ]
+    },
+    "caption_projection_fc2": {
+      "tensor_shape": [
+        1,
+        300,
+        1152
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.7375487685203552,
+      "minimum_vector_cosine": 0.3818337917327881,
+      "maximum_vector_cosine": 0.9918450713157654,
+      "mean_l2_distance": 2322.505126953125,
+      "native_norm": 3438.717529296875,
+      "mapped_norm": 1417.8375244140625,
+      "relative_norm_difference": 0.5876842141151428,
+      "per_vector_cosine": [
+        0.5910820960998535,
+        0.8100758790969849,
+        0.9129067659378052,
+        0.9918450713157654,
+        0.3818337917327881
+      ]
+    },
+    "caption_projection_output": {
+      "tensor_shape": [
+        1,
+        300,
+        1152
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.7375487685203552,
+      "minimum_vector_cosine": 0.3818337917327881,
+      "maximum_vector_cosine": 0.9918450713157654,
+      "mean_l2_distance": 2322.505126953125,
+      "native_norm": 3438.717529296875,
+      "mapped_norm": 1417.8375244140625,
+      "relative_norm_difference": 0.5876842141151428,
+      "per_vector_cosine": [
+        0.5910820960998535,
+        0.8100758790969849,
+        0.9129067659378052,
+        0.9918450713157654,
+        0.3818337917327881
+      ]
+    },
+    "final_conditioning_after_attention_y_norm": {
+      "tensor_shape": [
+        1,
+        300,
+        1152
+      ],
+      "compared_vectors": 5,
+      "cosine_similarity": 0.509572446346283,
+      "minimum_vector_cosine": 0.09070615470409393,
+      "maximum_vector_cosine": 0.8593602180480957,
+      "mean_l2_distance": 0.19486398994922638,
+      "native_norm": 0.16292306780815125,
+      "mapped_norm": 0.19051991403102875,
+      "relative_norm_difference": 0.16938574612140656,
+      "per_vector_cosine": [
+        0.09070615470409393,
+        0.5177292823791504,
+        0.7210707664489746,
+        0.8593602180480957,
+        0.35899579524993896
+      ]
+    },
+    "denoiser_output_at_debug_timestep": {
+      "tensor_shape": [
+        1,
+        32,
+        32,
+        32
+      ],
+      "compared_vectors": 1024,
+      "cosine_similarity": 0.9953428506851196,
+      "minimum_vector_cosine": 0.9761412143707275,
+      "maximum_vector_cosine": 0.9990044832229614,
+      "mean_l2_distance": 0.366855263710022,
+      "native_norm": 3.8883769512176514,
+      "mapped_norm": 3.910574436187744,
+      "relative_norm_difference": 0.0057086762972176075
+    }
+  },
+  "blocks": [
+    {
+      "block": 0,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999324083328247,
+        "minimum_vector_cosine": 0.9998642206192017,
+        "maximum_vector_cosine": 0.9999973773956299,
+        "mean_l2_distance": 1.1510401964187622,
+        "native_norm": 110.54009246826172,
+        "mapped_norm": 110.53905487060547,
+        "relative_norm_difference": 9.386618330609053e-06,
+        "per_vector_cosine": [
+          0.9998824596405029,
+          0.9999464750289917,
+          0.9999713897705078,
+          0.9999973773956299,
+          0.9998642206192017
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5965709090232849,
+        "minimum_vector_cosine": 0.27177804708480835,
+        "maximum_vector_cosine": 0.9116874933242798,
+        "mean_l2_distance": 1.1569433212280273,
+        "native_norm": 1.087201714515686,
+        "mapped_norm": 1.2688850164413452,
+        "relative_norm_difference": 0.16711093485355377,
+        "per_vector_cosine": [
+          0.27177804708480835,
+          0.6636346578598022,
+          0.7797520160675049,
+          0.9116874933242798,
+          0.35600242018699646
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 1.0,
+        "minimum_vector_cosine": 0.9999997019767761,
+        "maximum_vector_cosine": 1.0000003576278687,
+        "mean_l2_distance": 0.0,
+        "native_norm": 380.999267578125,
+        "mapped_norm": 380.999267578125,
+        "relative_norm_difference": 0.0
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9974154233932495,
+        "minimum_vector_cosine": 0.6896781325340271,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 11.035459518432617,
+        "native_norm": 1701.143798828125,
+        "mapped_norm": 1701.7501220703125,
+        "relative_norm_difference": 0.000356420932803303
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5237681269645691,
+        "minimum_vector_cosine": 1.2219719458528289e-08,
+        "maximum_vector_cosine": 0.9999213814735413,
+        "mean_l2_distance": 0.7570744752883911,
+        "native_norm": 0.7266631722450256,
+        "mapped_norm": 0.8059865236282349,
+        "relative_norm_difference": 0.10916110128164291
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.7190114259719849,
+        "minimum_vector_cosine": 0.66880202293396,
+        "maximum_vector_cosine": 0.7733519673347473,
+        "mean_l2_distance": 4.254556179046631,
+        "native_norm": 5.962231636047363,
+        "mapped_norm": 5.250646114349365,
+        "relative_norm_difference": 0.11934885382652283
+      }
+    },
+    {
+      "block": 1,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999319911003113,
+        "minimum_vector_cosine": 0.9998666644096375,
+        "maximum_vector_cosine": 0.9999974966049194,
+        "mean_l2_distance": 1.2622084617614746,
+        "native_norm": 120.1256103515625,
+        "mapped_norm": 120.0985336303711,
+        "relative_norm_difference": 0.0002254034043289721,
+        "per_vector_cosine": [
+          0.9998841285705566,
+          0.9999447464942932,
+          0.999967098236084,
+          0.9999974966049194,
+          0.9998666644096375
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5485230684280396,
+        "minimum_vector_cosine": 0.22090131044387817,
+        "maximum_vector_cosine": 0.9184093475341797,
+        "mean_l2_distance": 1.227798342704773,
+        "native_norm": 1.1029819250106812,
+        "mapped_norm": 1.2644214630126953,
+        "relative_norm_difference": 0.1463664472103119,
+        "per_vector_cosine": [
+          0.22090131044387817,
+          0.5564649105072021,
+          0.7400925755500793,
+          0.9184093475341797,
+          0.3067471385002136
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9981722235679626,
+        "minimum_vector_cosine": 0.9891853332519531,
+        "maximum_vector_cosine": 0.9999771118164062,
+        "mean_l2_distance": 10.674135208129883,
+        "native_norm": 239.44480895996094,
+        "mapped_norm": 238.67874145507812,
+        "relative_norm_difference": 0.0031993489246815443
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9973650574684143,
+        "minimum_vector_cosine": 0.05255463719367981,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 20.425952911376953,
+        "native_norm": 1207.4425048828125,
+        "mapped_norm": 1215.05908203125,
+        "relative_norm_difference": 0.006308024749159813
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5984265804290771,
+        "minimum_vector_cosine": 0.10316368192434311,
+        "maximum_vector_cosine": 0.9996793866157532,
+        "mean_l2_distance": 0.6431605219841003,
+        "native_norm": 0.690599262714386,
+        "mapped_norm": 0.7644603252410889,
+        "relative_norm_difference": 0.10695213079452515
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.7599349021911621,
+        "minimum_vector_cosine": 0.7066335082054138,
+        "maximum_vector_cosine": 0.8073487877845764,
+        "mean_l2_distance": 4.049564838409424,
+        "native_norm": 5.001773834228516,
+        "mapped_norm": 6.214817523956299,
+        "relative_norm_difference": 0.2425227016210556
+      }
+    },
+    {
+      "block": 2,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999605417251587,
+        "minimum_vector_cosine": 0.9999192953109741,
+        "maximum_vector_cosine": 0.9999986886978149,
+        "mean_l2_distance": 1.5278818607330322,
+        "native_norm": 189.514892578125,
+        "mapped_norm": 189.74710083007812,
+        "relative_norm_difference": 0.0012252770829945803,
+        "per_vector_cosine": [
+          0.9999359846115112,
+          0.99996417760849,
+          0.9999845027923584,
+          0.9999986886978149,
+          0.9999192953109741
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5473925471305847,
+        "minimum_vector_cosine": 0.23441846668720245,
+        "maximum_vector_cosine": 0.911003053188324,
+        "mean_l2_distance": 1.3474360704421997,
+        "native_norm": 1.1780102252960205,
+        "mapped_norm": 1.3756440877914429,
+        "relative_norm_difference": 0.16776922345161438,
+        "per_vector_cosine": [
+          0.23441846668720245,
+          0.5715216398239136,
+          0.7346581220626831,
+          0.911003053188324,
+          0.28536128997802734
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9933497905731201,
+        "minimum_vector_cosine": 0.9323412775993347,
+        "maximum_vector_cosine": 0.9996140003204346,
+        "mean_l2_distance": 24.951574325561523,
+        "native_norm": 211.02838134765625,
+        "mapped_norm": 224.7182159423828,
+        "relative_norm_difference": 0.06487200409173965
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9878212213516235,
+        "minimum_vector_cosine": -0.998145580291748,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 201.5511932373047,
+        "native_norm": 2182.48291015625,
+        "mapped_norm": 2379.462890625,
+        "relative_norm_difference": 0.09025499224662781
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.46504518389701843,
+        "minimum_vector_cosine": 0.06674627959728241,
+        "maximum_vector_cosine": 0.9797360301017761,
+        "mean_l2_distance": 0.8473411798477173,
+        "native_norm": 0.7075768709182739,
+        "mapped_norm": 0.8947272896766663,
+        "relative_norm_difference": 0.2644948363304138
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.846341609954834,
+        "minimum_vector_cosine": 0.7702326774597168,
+        "maximum_vector_cosine": 0.8929270505905151,
+        "mean_l2_distance": 2.606884241104126,
+        "native_norm": 4.335423469543457,
+        "mapped_norm": 4.883944034576416,
+        "relative_norm_difference": 0.12652064859867096
+      }
+    },
+    {
+      "block": 3,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999555945396423,
+        "minimum_vector_cosine": 0.9998952746391296,
+        "maximum_vector_cosine": 0.999998927116394,
+        "mean_l2_distance": 1.518638014793396,
+        "native_norm": 183.6614532470703,
+        "mapped_norm": 183.7567596435547,
+        "relative_norm_difference": 0.0005189243238419294,
+        "per_vector_cosine": [
+          0.9999275207519531,
+          0.9999701976776123,
+          0.9999859929084778,
+          0.999998927116394,
+          0.9998952746391296
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5287935137748718,
+        "minimum_vector_cosine": 0.15119707584381104,
+        "maximum_vector_cosine": 0.9080711603164673,
+        "mean_l2_distance": 1.5385684967041016,
+        "native_norm": 1.3683900833129883,
+        "mapped_norm": 1.529709815979004,
+        "relative_norm_difference": 0.11789016425609589,
+        "per_vector_cosine": [
+          0.15119707584381104,
+          0.5882208347320557,
+          0.7095696330070496,
+          0.9080711603164673,
+          0.2869087755680084
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9894586205482483,
+        "minimum_vector_cosine": 0.9277371764183044,
+        "maximum_vector_cosine": 0.999390721321106,
+        "mean_l2_distance": 37.4741325378418,
+        "native_norm": 195.9458770751953,
+        "mapped_norm": 222.13536071777344,
+        "relative_norm_difference": 0.13365672528743744
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9978893995285034,
+        "minimum_vector_cosine": -0.9892626404762268,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 261.48492431640625,
+        "native_norm": 1635.06396484375,
+        "mapped_norm": 1894.975341796875,
+        "relative_norm_difference": 0.1589609831571579
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.48634281754493713,
+        "minimum_vector_cosine": 0.061468131840229034,
+        "maximum_vector_cosine": 0.9970331788063049,
+        "mean_l2_distance": 0.8169065713882446,
+        "native_norm": 0.6960594058036804,
+        "mapped_norm": 0.8753475546836853,
+        "relative_norm_difference": 0.2575759291648865
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.7460578680038452,
+        "minimum_vector_cosine": 0.47003239393234253,
+        "maximum_vector_cosine": 0.8631755709648132,
+        "mean_l2_distance": 3.810824155807495,
+        "native_norm": 5.4132561683654785,
+        "mapped_norm": 5.2747650146484375,
+        "relative_norm_difference": 0.02558370679616928
+      }
+    },
+    {
+      "block": 4,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999408721923828,
+        "minimum_vector_cosine": 0.9998441934585571,
+        "maximum_vector_cosine": 0.9999985694885254,
+        "mean_l2_distance": 1.6282703876495361,
+        "native_norm": 172.11587524414062,
+        "mapped_norm": 172.24095153808594,
+        "relative_norm_difference": 0.0007266981992870569,
+        "per_vector_cosine": [
+          0.999919056892395,
+          0.9999607801437378,
+          0.9999819397926331,
+          0.9999985694885254,
+          0.9998441934585571
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5440086126327515,
+        "minimum_vector_cosine": 0.20275592803955078,
+        "maximum_vector_cosine": 0.8998981714248657,
+        "mean_l2_distance": 1.5083674192428589,
+        "native_norm": 1.368281364440918,
+        "mapped_norm": 1.5158933401107788,
+        "relative_norm_difference": 0.10788130015134811,
+        "per_vector_cosine": [
+          0.20275592803955078,
+          0.5989406108856201,
+          0.7344767451286316,
+          0.8998981714248657,
+          0.2839716076850891
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9859342575073242,
+        "minimum_vector_cosine": 0.8827720880508423,
+        "maximum_vector_cosine": 0.9986948370933533,
+        "mean_l2_distance": 37.78544998168945,
+        "native_norm": 182.06826782226562,
+        "mapped_norm": 203.6995086669922,
+        "relative_norm_difference": 0.11880840361118317
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9713532328605652,
+        "minimum_vector_cosine": -0.9996243715286255,
+        "maximum_vector_cosine": 0.9999996423721313,
+        "mean_l2_distance": 274.8607177734375,
+        "native_norm": 1318.530029296875,
+        "mapped_norm": 1589.4534912109375,
+        "relative_norm_difference": 0.2054738700389862
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4668669104576111,
+        "minimum_vector_cosine": 0.03394603356719017,
+        "maximum_vector_cosine": 0.9810740947723389,
+        "mean_l2_distance": 0.8283159732818604,
+        "native_norm": 0.6954561471939087,
+        "mapped_norm": 0.870816707611084,
+        "relative_norm_difference": 0.25215184688568115
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8736749887466431,
+        "minimum_vector_cosine": 0.6597940325737,
+        "maximum_vector_cosine": 0.9194955825805664,
+        "mean_l2_distance": 3.498187303543091,
+        "native_norm": 7.0342535972595215,
+        "mapped_norm": 6.944616317749023,
+        "relative_norm_difference": 0.012742969207465649
+      }
+    },
+    {
+      "block": 5,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9998871088027954,
+        "minimum_vector_cosine": 0.9996924996376038,
+        "maximum_vector_cosine": 0.9999972581863403,
+        "mean_l2_distance": 1.8044404983520508,
+        "native_norm": 137.12998962402344,
+        "mapped_norm": 137.3925018310547,
+        "relative_norm_difference": 0.0019143311074003577,
+        "per_vector_cosine": [
+          0.9998464584350586,
+          0.9999295473098755,
+          0.9999696016311646,
+          0.9999972581863403,
+          0.9996924996376038
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5095244646072388,
+        "minimum_vector_cosine": 0.1057031899690628,
+        "maximum_vector_cosine": 0.9016799926757812,
+        "mean_l2_distance": 1.6020641326904297,
+        "native_norm": 1.4008867740631104,
+        "mapped_norm": 1.5418685674667358,
+        "relative_norm_difference": 0.1006375327706337,
+        "per_vector_cosine": [
+          0.1057031899690628,
+          0.6111187934875488,
+          0.6966391801834106,
+          0.9016799926757812,
+          0.23248116672039032
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9840688109397888,
+        "minimum_vector_cosine": 0.8646836876869202,
+        "maximum_vector_cosine": 0.9979429244995117,
+        "mean_l2_distance": 36.89339828491211,
+        "native_norm": 187.7608642578125,
+        "mapped_norm": 204.47360229492188,
+        "relative_norm_difference": 0.08901076763868332
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9994843602180481,
+        "minimum_vector_cosine": -0.9950144290924072,
+        "maximum_vector_cosine": 0.9999996423721313,
+        "mean_l2_distance": 160.332275390625,
+        "native_norm": 1089.330810546875,
+        "mapped_norm": 1242.127197265625,
+        "relative_norm_difference": 0.1402662843465805
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4955783486366272,
+        "minimum_vector_cosine": 0.026379460468888283,
+        "maximum_vector_cosine": 0.999447762966156,
+        "mean_l2_distance": 0.8097193241119385,
+        "native_norm": 0.6835333108901978,
+        "mapped_norm": 0.8816721439361572,
+        "relative_norm_difference": 0.28987443447113037
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.733234167098999,
+        "minimum_vector_cosine": 0.23496970534324646,
+        "maximum_vector_cosine": 0.8853936195373535,
+        "mean_l2_distance": 4.7235517501831055,
+        "native_norm": 6.617645263671875,
+        "mapped_norm": 6.580290794372559,
+        "relative_norm_difference": 0.005644676741212606
+      }
+    },
+    {
+      "block": 6,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9998998045921326,
+        "minimum_vector_cosine": 0.9997206330299377,
+        "maximum_vector_cosine": 0.9999980926513672,
+        "mean_l2_distance": 2.096186399459839,
+        "native_norm": 170.20132446289062,
+        "mapped_norm": 170.5038299560547,
+        "relative_norm_difference": 0.0017773392610251904,
+        "per_vector_cosine": [
+          0.9998732209205627,
+          0.9999343156814575,
+          0.9999725818634033,
+          0.9999980926513672,
+          0.9997206330299377
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5001981258392334,
+        "minimum_vector_cosine": 0.05003578960895538,
+        "maximum_vector_cosine": 0.908919095993042,
+        "mean_l2_distance": 1.7880913019180298,
+        "native_norm": 1.5821584463119507,
+        "mapped_norm": 1.6656761169433594,
+        "relative_norm_difference": 0.0527871735394001,
+        "per_vector_cosine": [
+          0.05003578960895538,
+          0.6046460270881653,
+          0.6763175129890442,
+          0.908919095993042,
+          0.26107221841812134
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9773859977722168,
+        "minimum_vector_cosine": 0.8411379456520081,
+        "maximum_vector_cosine": 0.9978160858154297,
+        "mean_l2_distance": 40.78300857543945,
+        "native_norm": 190.9619598388672,
+        "mapped_norm": 201.7859649658203,
+        "relative_norm_difference": 0.056681472808122635
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9521106481552124,
+        "minimum_vector_cosine": -0.9997906684875488,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 169.8951416015625,
+        "native_norm": 1186.91015625,
+        "mapped_norm": 1347.359375,
+        "relative_norm_difference": 0.13518227636814117
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4690762460231781,
+        "minimum_vector_cosine": 0.030703535303473473,
+        "maximum_vector_cosine": 0.9999899864196777,
+        "mean_l2_distance": 0.8363208770751953,
+        "native_norm": 0.7064825296401978,
+        "mapped_norm": 0.8914435505867004,
+        "relative_norm_difference": 0.2618055045604706
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.6815491318702698,
+        "minimum_vector_cosine": 0.10690517723560333,
+        "maximum_vector_cosine": 0.9522863626480103,
+        "mean_l2_distance": 6.395100116729736,
+        "native_norm": 8.886144638061523,
+        "mapped_norm": 7.1128129959106445,
+        "relative_norm_difference": 0.19956141710281372
+      }
+    },
+    {
+      "block": 7,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999246001243591,
+        "minimum_vector_cosine": 0.9997920989990234,
+        "maximum_vector_cosine": 0.999998152256012,
+        "mean_l2_distance": 2.0531013011932373,
+        "native_norm": 192.75526428222656,
+        "mapped_norm": 192.96798706054688,
+        "relative_norm_difference": 0.0011035900097340345,
+        "per_vector_cosine": [
+          0.999902606010437,
+          0.9999512434005737,
+          0.9999787211418152,
+          0.999998152256012,
+          0.9997920989990234
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.4983099102973938,
+        "minimum_vector_cosine": 0.04766584560275078,
+        "maximum_vector_cosine": 0.9146467447280884,
+        "mean_l2_distance": 1.8571232557296753,
+        "native_norm": 1.6673609018325806,
+        "mapped_norm": 1.7398813962936401,
+        "relative_norm_difference": 0.04349417984485626,
+        "per_vector_cosine": [
+          0.04766584560275078,
+          0.5987643003463745,
+          0.6519594788551331,
+          0.9146467447280884,
+          0.2785131335258484
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9798291921615601,
+        "minimum_vector_cosine": 0.8887807130813599,
+        "maximum_vector_cosine": 0.9983171820640564,
+        "mean_l2_distance": 44.8576774597168,
+        "native_norm": 236.84423828125,
+        "mapped_norm": 242.37420654296875,
+        "relative_norm_difference": 0.023348543792963028
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.993243932723999,
+        "minimum_vector_cosine": -0.9986701011657715,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 135.92137145996094,
+        "native_norm": 2108.59619140625,
+        "mapped_norm": 2150.328857421875,
+        "relative_norm_difference": 0.019791683182120323
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5107772350311279,
+        "minimum_vector_cosine": 0.029979363083839417,
+        "maximum_vector_cosine": 0.9976476430892944,
+        "mean_l2_distance": 0.825161874294281,
+        "native_norm": 0.7057327628135681,
+        "mapped_norm": 0.918967604637146,
+        "relative_norm_difference": 0.3021467328071594
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8946824073791504,
+        "minimum_vector_cosine": 0.06233605742454529,
+        "maximum_vector_cosine": 0.9686422348022461,
+        "mean_l2_distance": 5.189511775970459,
+        "native_norm": 12.321647644042969,
+        "mapped_norm": 10.588703155517578,
+        "relative_norm_difference": 0.14064227044582367
+      }
+    },
+    {
+      "block": 8,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999558329582214,
+        "minimum_vector_cosine": 0.9998860359191895,
+        "maximum_vector_cosine": 0.9999988079071045,
+        "mean_l2_distance": 1.7873268127441406,
+        "native_norm": 215.92002868652344,
+        "mapped_norm": 216.09483337402344,
+        "relative_norm_difference": 0.0008095806697383523,
+        "per_vector_cosine": [
+          0.9999445080757141,
+          0.9999634027481079,
+          0.9999863505363464,
+          0.9999988079071045,
+          0.9998860359191895
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5047763586044312,
+        "minimum_vector_cosine": 0.07657497376203537,
+        "maximum_vector_cosine": 0.898520827293396,
+        "mean_l2_distance": 1.9918956756591797,
+        "native_norm": 1.7736005783081055,
+        "mapped_norm": 1.930806040763855,
+        "relative_norm_difference": 0.08863633871078491,
+        "per_vector_cosine": [
+          0.07657497376203537,
+          0.5939346551895142,
+          0.6827471852302551,
+          0.898520827293396,
+          0.27210402488708496
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.979357898235321,
+        "minimum_vector_cosine": 0.8936365246772766,
+        "maximum_vector_cosine": 0.998993456363678,
+        "mean_l2_distance": 52.50624084472656,
+        "native_norm": 270.92236328125,
+        "mapped_norm": 278.8507385253906,
+        "relative_norm_difference": 0.029264381155371666
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9905134439468384,
+        "minimum_vector_cosine": -0.9996950626373291,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 232.70700073242188,
+        "native_norm": 2645.42041015625,
+        "mapped_norm": 2841.192626953125,
+        "relative_norm_difference": 0.07400419563055038
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5299256443977356,
+        "minimum_vector_cosine": 0.006367494352161884,
+        "maximum_vector_cosine": 0.9994548559188843,
+        "mean_l2_distance": 0.7860327363014221,
+        "native_norm": 0.6834999322891235,
+        "mapped_norm": 0.8866668939590454,
+        "relative_norm_difference": 0.2972450256347656
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8623226881027222,
+        "minimum_vector_cosine": 0.22438788414001465,
+        "maximum_vector_cosine": 0.9427287578582764,
+        "mean_l2_distance": 6.3949689865112305,
+        "native_norm": 12.904086112976074,
+        "mapped_norm": 11.067153930664062,
+        "relative_norm_difference": 0.14235275983810425
+      }
+    },
+    {
+      "block": 9,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999651312828064,
+        "minimum_vector_cosine": 0.9999023079872131,
+        "maximum_vector_cosine": 0.9999992847442627,
+        "mean_l2_distance": 1.7793018817901611,
+        "native_norm": 248.2609405517578,
+        "mapped_norm": 248.3743133544922,
+        "relative_norm_difference": 0.000456667912658304,
+        "per_vector_cosine": [
+          0.9999575614929199,
+          0.9999755620956421,
+          0.9999909996986389,
+          0.9999992847442627,
+          0.9999023079872131
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5225640535354614,
+        "minimum_vector_cosine": 0.10771021991968155,
+        "maximum_vector_cosine": 0.906964898109436,
+        "mean_l2_distance": 2.2133336067199707,
+        "native_norm": 1.9567075967788696,
+        "mapped_norm": 2.1280405521392822,
+        "relative_norm_difference": 0.08756186068058014,
+        "per_vector_cosine": [
+          0.10771021991968155,
+          0.6038193702697754,
+          0.6863802671432495,
+          0.906964898109436,
+          0.3079454302787781
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9774745106697083,
+        "minimum_vector_cosine": 0.8322595953941345,
+        "maximum_vector_cosine": 0.9998564720153809,
+        "mean_l2_distance": 65.51100158691406,
+        "native_norm": 413.5257263183594,
+        "mapped_norm": 432.368896484375,
+        "relative_norm_difference": 0.0455671064555645
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9480850100517273,
+        "minimum_vector_cosine": -0.999976634979248,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 465.9685974121094,
+        "native_norm": 7600.90771484375,
+        "mapped_norm": 7974.6513671875,
+        "relative_norm_difference": 0.04917092248797417
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5226137638092041,
+        "minimum_vector_cosine": 0.02741706371307373,
+        "maximum_vector_cosine": 0.9976392984390259,
+        "mean_l2_distance": 0.8022482991218567,
+        "native_norm": 0.6947493553161621,
+        "mapped_norm": 0.8985788822174072,
+        "relative_norm_difference": 0.29338571429252625
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8020694851875305,
+        "minimum_vector_cosine": 0.14158612489700317,
+        "maximum_vector_cosine": 0.9244046211242676,
+        "mean_l2_distance": 8.550382614135742,
+        "native_norm": 14.753387451171875,
+        "mapped_norm": 12.134759902954102,
+        "relative_norm_difference": 0.17749330401420593
+      }
+    },
+    {
+      "block": 10,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.999987781047821,
+        "minimum_vector_cosine": 0.9999628067016602,
+        "maximum_vector_cosine": 0.9999997615814209,
+        "mean_l2_distance": 1.5483746528625488,
+        "native_norm": 366.0806884765625,
+        "mapped_norm": 366.2039489746094,
+        "relative_norm_difference": 0.0003367030876688659,
+        "per_vector_cosine": [
+          0.9999868869781494,
+          0.9999924898147583,
+          0.9999966025352478,
+          0.9999997615814209,
+          0.9999628067016602
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.4910493493080139,
+        "minimum_vector_cosine": 0.06482874602079391,
+        "maximum_vector_cosine": 0.9134979248046875,
+        "mean_l2_distance": 2.334364652633667,
+        "native_norm": 2.0734288692474365,
+        "mapped_norm": 2.11686110496521,
+        "relative_norm_difference": 0.020947057753801346,
+        "per_vector_cosine": [
+          0.06482874602079391,
+          0.570550262928009,
+          0.6590416431427002,
+          0.9134979248046875,
+          0.24732805788516998
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9863802790641785,
+        "minimum_vector_cosine": 0.8534672260284424,
+        "maximum_vector_cosine": 0.9998636841773987,
+        "mean_l2_distance": 88.62781524658203,
+        "native_norm": 848.8436279296875,
+        "mapped_norm": 884.9091186523438,
+        "relative_norm_difference": 0.042487792670726776
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9906296133995056,
+        "minimum_vector_cosine": -0.9999228119850159,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 1276.4195556640625,
+        "native_norm": 24375.82421875,
+        "mapped_norm": 25463.38671875,
+        "relative_norm_difference": 0.04461643844842911
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5180301070213318,
+        "minimum_vector_cosine": 0.0021535283885896206,
+        "maximum_vector_cosine": 0.9950567483901978,
+        "mean_l2_distance": 0.8192673921585083,
+        "native_norm": 0.704498827457428,
+        "mapped_norm": 0.9205015897750854,
+        "relative_norm_difference": 0.30660486221313477
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.7499069571495056,
+        "minimum_vector_cosine": 0.1779598891735077,
+        "maximum_vector_cosine": 0.8797273635864258,
+        "mean_l2_distance": 7.7167816162109375,
+        "native_norm": 11.240848541259766,
+        "mapped_norm": 10.55384635925293,
+        "relative_norm_difference": 0.061116576194763184
+      }
+    },
+    {
+      "block": 11,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.999987781047821,
+        "minimum_vector_cosine": 0.9999644756317139,
+        "maximum_vector_cosine": 0.9999997019767761,
+        "mean_l2_distance": 1.4445953369140625,
+        "native_norm": 340.28765869140625,
+        "mapped_norm": 340.3685607910156,
+        "relative_norm_difference": 0.0002377462078584358,
+        "per_vector_cosine": [
+          0.9999873042106628,
+          0.9999915361404419,
+          0.9999961853027344,
+          0.9999997019767761,
+          0.9999644756317139
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.4828099310398102,
+        "minimum_vector_cosine": 0.02303249016404152,
+        "maximum_vector_cosine": 0.9203426241874695,
+        "mean_l2_distance": 2.6515235900878906,
+        "native_norm": 2.3368079662323,
+        "mapped_norm": 2.40403151512146,
+        "relative_norm_difference": 0.028767254203557968,
+        "per_vector_cosine": [
+          0.02303249016404152,
+          0.5770321488380432,
+          0.6469082832336426,
+          0.9203426241874695,
+          0.24673396348953247
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.980501115322113,
+        "minimum_vector_cosine": 0.7732989192008972,
+        "maximum_vector_cosine": 0.9995449185371399,
+        "mean_l2_distance": 117.13328552246094,
+        "native_norm": 770.6993408203125,
+        "mapped_norm": 807.2113037109375,
+        "relative_norm_difference": 0.04737510532140732
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9337291121482849,
+        "minimum_vector_cosine": -0.9999921321868896,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 1509.9072265625,
+        "native_norm": 16822.642578125,
+        "mapped_norm": 17871.4609375,
+        "relative_norm_difference": 0.062345635145902634
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4280052185058594,
+        "minimum_vector_cosine": 0.0025926518719643354,
+        "maximum_vector_cosine": 0.9979032278060913,
+        "mean_l2_distance": 0.8990198373794556,
+        "native_norm": 0.7184388637542725,
+        "mapped_norm": 0.9269391298294067,
+        "relative_norm_difference": 0.2902129590511322
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.822222888469696,
+        "minimum_vector_cosine": 0.18017196655273438,
+        "maximum_vector_cosine": 0.9279958009719849,
+        "mean_l2_distance": 7.895402908325195,
+        "native_norm": 13.803378105163574,
+        "mapped_norm": 13.099905014038086,
+        "relative_norm_difference": 0.050963833928108215
+      }
+    },
+    {
+      "block": 12,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999923706054688,
+        "minimum_vector_cosine": 0.9999776482582092,
+        "maximum_vector_cosine": 0.9999998807907104,
+        "mean_l2_distance": 1.4280012845993042,
+        "native_norm": 426.65484619140625,
+        "mapped_norm": 426.6808776855469,
+        "relative_norm_difference": 6.101300459704362e-05,
+        "per_vector_cosine": [
+          0.9999920129776001,
+          0.9999946355819702,
+          0.9999976754188538,
+          0.9999998807907104,
+          0.9999776482582092
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5252704620361328,
+        "minimum_vector_cosine": 0.14980681240558624,
+        "maximum_vector_cosine": 0.900208055973053,
+        "mean_l2_distance": 2.663904905319214,
+        "native_norm": 2.385500431060791,
+        "mapped_norm": 2.4648215770721436,
+        "relative_norm_difference": 0.03325136378407478,
+        "per_vector_cosine": [
+          0.14980681240558624,
+          0.6122936010360718,
+          0.6760623455047607,
+          0.900208055973053,
+          0.2879815995693207
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9667444229125977,
+        "minimum_vector_cosine": -0.40938857197761536,
+        "maximum_vector_cosine": 0.9999127984046936,
+        "mean_l2_distance": 231.42478942871094,
+        "native_norm": 1449.9013671875,
+        "mapped_norm": 1380.4034423828125,
+        "relative_norm_difference": 0.04793286323547363
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9047122001647949,
+        "minimum_vector_cosine": -0.9999997019767761,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 5325.4423828125,
+        "native_norm": 35907.1875,
+        "mapped_norm": 34154.3515625,
+        "relative_norm_difference": 0.048815738409757614
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4997977316379547,
+        "minimum_vector_cosine": 0.0014013579348102212,
+        "maximum_vector_cosine": 0.9992585778236389,
+        "mean_l2_distance": 0.8652539253234863,
+        "native_norm": 0.7512581944465637,
+        "mapped_norm": 0.972943127155304,
+        "relative_norm_difference": 0.2950848639011383
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8861446976661682,
+        "minimum_vector_cosine": 0.7172291278839111,
+        "maximum_vector_cosine": 0.9316079616546631,
+        "mean_l2_distance": 7.751839637756348,
+        "native_norm": 14.155941009521484,
+        "mapped_norm": 16.70196533203125,
+        "relative_norm_difference": 0.17985554039478302
+      }
+    },
+    {
+      "block": 13,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999896883964539,
+        "minimum_vector_cosine": 0.9999711513519287,
+        "maximum_vector_cosine": 0.9999997019767761,
+        "mean_l2_distance": 1.437650442123413,
+        "native_norm": 365.3440856933594,
+        "mapped_norm": 365.3857727050781,
+        "relative_norm_difference": 0.0001141034226748161,
+        "per_vector_cosine": [
+          0.9999879598617554,
+          0.9999926090240479,
+          0.9999966621398926,
+          0.9999997019767761,
+          0.9999711513519287
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5069603323936462,
+        "minimum_vector_cosine": 0.10384473204612732,
+        "maximum_vector_cosine": 0.8898448944091797,
+        "mean_l2_distance": 2.656489133834839,
+        "native_norm": 2.286041259765625,
+        "mapped_norm": 2.4583258628845215,
+        "relative_norm_difference": 0.07536373287439346,
+        "per_vector_cosine": [
+          0.10384473204612732,
+          0.5873298645019531,
+          0.7041375637054443,
+          0.8898448944091797,
+          0.24964462220668793
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9899221658706665,
+        "minimum_vector_cosine": 0.18934711813926697,
+        "maximum_vector_cosine": 0.9998588562011719,
+        "mean_l2_distance": 181.52264404296875,
+        "native_norm": 1720.7470703125,
+        "mapped_norm": 1745.4583740234375,
+        "relative_norm_difference": 0.014360799454152584
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9579419493675232,
+        "minimum_vector_cosine": -0.9999988079071045,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 3541.26953125,
+        "native_norm": 39632.8046875,
+        "mapped_norm": 40292.43359375,
+        "relative_norm_difference": 0.016643507406115532
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4371013939380646,
+        "minimum_vector_cosine": 0.004872700199484825,
+        "maximum_vector_cosine": 0.998222827911377,
+        "mean_l2_distance": 0.9245670437812805,
+        "native_norm": 0.7538155913352966,
+        "mapped_norm": 0.9815874099731445,
+        "relative_norm_difference": 0.30215853452682495
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.87796950340271,
+        "minimum_vector_cosine": 0.6694167852401733,
+        "maximum_vector_cosine": 0.9034951329231262,
+        "mean_l2_distance": 6.922570705413818,
+        "native_norm": 11.315113067626953,
+        "mapped_norm": 14.241762161254883,
+        "relative_norm_difference": 0.2586495578289032
+      }
+    },
+    {
+      "block": 14,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999914169311523,
+        "minimum_vector_cosine": 0.9999741315841675,
+        "maximum_vector_cosine": 0.9999998807907104,
+        "mean_l2_distance": 1.4280380010604858,
+        "native_norm": 405.6095886230469,
+        "mapped_norm": 405.6012878417969,
+        "relative_norm_difference": 2.0464953195187263e-05,
+        "per_vector_cosine": [
+          0.9999920725822449,
+          0.9999940991401672,
+          0.9999972581863403,
+          0.9999998807907104,
+          0.9999741315841675
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5390939712524414,
+        "minimum_vector_cosine": 0.2384408414363861,
+        "maximum_vector_cosine": 0.9089363813400269,
+        "mean_l2_distance": 2.4889707565307617,
+        "native_norm": 2.216362714767456,
+        "mapped_norm": 2.3300321102142334,
+        "relative_norm_difference": 0.05128645896911621,
+        "per_vector_cosine": [
+          0.2384408414363861,
+          0.5829799175262451,
+          0.6759044528007507,
+          0.9089363813400269,
+          0.2892082929611206
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9922266006469727,
+        "minimum_vector_cosine": 0.3999042510986328,
+        "maximum_vector_cosine": 0.9998725652694702,
+        "mean_l2_distance": 227.73046875,
+        "native_norm": 2014.678466796875,
+        "mapped_norm": 2102.72509765625,
+        "relative_norm_difference": 0.04370257258415222
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9754120707511902,
+        "minimum_vector_cosine": -0.9999979734420776,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 4731.2138671875,
+        "native_norm": 46455.19921875,
+        "mapped_norm": 48507.75,
+        "relative_norm_difference": 0.04418344423174858
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.5127850770950317,
+        "minimum_vector_cosine": 0.005696034990251064,
+        "maximum_vector_cosine": 0.9994902014732361,
+        "mean_l2_distance": 0.8311645984649658,
+        "native_norm": 0.7773895859718323,
+        "mapped_norm": 0.9629630446434021,
+        "relative_norm_difference": 0.2387135922908783
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9148693084716797,
+        "minimum_vector_cosine": 0.7747045755386353,
+        "maximum_vector_cosine": 0.9626660346984863,
+        "mean_l2_distance": 8.557743072509766,
+        "native_norm": 17.45073699951172,
+        "mapped_norm": 20.821500778198242,
+        "relative_norm_difference": 0.193158820271492
+      }
+    },
+    {
+      "block": 15,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.999988853931427,
+        "minimum_vector_cosine": 0.9999712109565735,
+        "maximum_vector_cosine": 0.9999997615814209,
+        "mean_l2_distance": 1.4455279111862183,
+        "native_norm": 349.5052185058594,
+        "mapped_norm": 349.51678466796875,
+        "relative_norm_difference": 3.309295789222233e-05,
+        "per_vector_cosine": [
+          0.9999864101409912,
+          0.9999909400939941,
+          0.9999958872795105,
+          0.9999997615814209,
+          0.9999712109565735
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5352450609207153,
+        "minimum_vector_cosine": 0.2407342940568924,
+        "maximum_vector_cosine": 0.9312763214111328,
+        "mean_l2_distance": 2.2508513927459717,
+        "native_norm": 1.9994537830352783,
+        "mapped_norm": 2.14951491355896,
+        "relative_norm_difference": 0.07505106180906296,
+        "per_vector_cosine": [
+          0.2407342940568924,
+          0.5455613732337952,
+          0.6599727272987366,
+          0.9312763214111328,
+          0.29868054389953613
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9876810908317566,
+        "minimum_vector_cosine": 0.2185850292444229,
+        "maximum_vector_cosine": 0.9999498128890991,
+        "mean_l2_distance": 217.47840881347656,
+        "native_norm": 1883.0718994140625,
+        "mapped_norm": 1913.682373046875,
+        "relative_norm_difference": 0.016255605965852737
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9431637525558472,
+        "minimum_vector_cosine": -0.999998927116394,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 3830.92626953125,
+        "native_norm": 31608.19140625,
+        "mapped_norm": 32056.373046875,
+        "relative_norm_difference": 0.014179287478327751
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4792064428329468,
+        "minimum_vector_cosine": 6.440041033783928e-05,
+        "maximum_vector_cosine": 0.999996542930603,
+        "mean_l2_distance": 0.8860574960708618,
+        "native_norm": 0.7754740715026855,
+        "mapped_norm": 0.9725775718688965,
+        "relative_norm_difference": 0.25417160987854004
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9536411762237549,
+        "minimum_vector_cosine": 0.7629375457763672,
+        "maximum_vector_cosine": 0.9779289364814758,
+        "mean_l2_distance": 6.082880020141602,
+        "native_norm": 19.9121150970459,
+        "mapped_norm": 20.305877685546875,
+        "relative_norm_difference": 0.01977502554655075
+      }
+    },
+    {
+      "block": 16,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999929666519165,
+        "minimum_vector_cosine": 0.9999806880950928,
+        "maximum_vector_cosine": 0.9999998211860657,
+        "mean_l2_distance": 1.3951143026351929,
+        "native_norm": 426.45953369140625,
+        "mapped_norm": 426.438720703125,
+        "relative_norm_difference": 4.880413325736299e-05,
+        "per_vector_cosine": [
+          0.9999927282333374,
+          0.9999946355819702,
+          0.999997079372406,
+          0.9999998211860657,
+          0.9999806880950928
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5993261337280273,
+        "minimum_vector_cosine": 0.3086547255516052,
+        "maximum_vector_cosine": 0.9137699604034424,
+        "mean_l2_distance": 2.1343042850494385,
+        "native_norm": 1.992815613746643,
+        "mapped_norm": 2.155320882797241,
+        "relative_norm_difference": 0.08154556155204773,
+        "per_vector_cosine": [
+          0.3086547255516052,
+          0.6657247543334961,
+          0.7788146138191223,
+          0.9137699604034424,
+          0.32966679334640503
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9871463775634766,
+        "minimum_vector_cosine": 0.6734805703163147,
+        "maximum_vector_cosine": 0.9998819828033447,
+        "mean_l2_distance": 191.79449462890625,
+        "native_norm": 1529.401123046875,
+        "mapped_norm": 1536.0611572265625,
+        "relative_norm_difference": 0.004354667849838734
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9135775566101074,
+        "minimum_vector_cosine": -0.9999989867210388,
+        "maximum_vector_cosine": 1.000000238418579,
+        "mean_l2_distance": 3964.352294921875,
+        "native_norm": 31157.24609375,
+        "mapped_norm": 31097.876953125,
+        "relative_norm_difference": 0.0019054681761190295
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.4165581464767456,
+        "minimum_vector_cosine": 0.00013319244317244738,
+        "maximum_vector_cosine": 0.9999999403953552,
+        "mean_l2_distance": 0.9355692863464355,
+        "native_norm": 0.8359344005584717,
+        "mapped_norm": 0.9971451759338379,
+        "relative_norm_difference": 0.1928509920835495
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8393629789352417,
+        "minimum_vector_cosine": 0.8011239171028137,
+        "maximum_vector_cosine": 0.8515397310256958,
+        "mean_l2_distance": 10.994804382324219,
+        "native_norm": 15.14165210723877,
+        "mapped_norm": 19.994834899902344,
+        "relative_norm_difference": 0.32051870226860046
+      }
+    },
+    {
+      "block": 17,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999920129776001,
+        "minimum_vector_cosine": 0.9999798536300659,
+        "maximum_vector_cosine": 0.9999998211860657,
+        "mean_l2_distance": 1.3346275091171265,
+        "native_norm": 377.0480651855469,
+        "mapped_norm": 377.0127868652344,
+        "relative_norm_difference": 9.356451482744887e-05,
+        "per_vector_cosine": [
+          0.9999898672103882,
+          0.9999929666519165,
+          0.9999970197677612,
+          0.9999998211860657,
+          0.9999798536300659
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5707767009735107,
+        "minimum_vector_cosine": 0.2898073196411133,
+        "maximum_vector_cosine": 0.917182207107544,
+        "mean_l2_distance": 1.8225723505020142,
+        "native_norm": 1.6549104452133179,
+        "mapped_norm": 1.848653793334961,
+        "relative_norm_difference": 0.11707179993391037,
+        "per_vector_cosine": [
+          0.2898073196411133,
+          0.5921168327331543,
+          0.7447383403778076,
+          0.917182207107544,
+          0.3100387454032898
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9893355369567871,
+        "minimum_vector_cosine": 0.7152822017669678,
+        "maximum_vector_cosine": 0.9998321533203125,
+        "mean_l2_distance": 186.5557098388672,
+        "native_norm": 1511.72216796875,
+        "mapped_norm": 1540.34375,
+        "relative_norm_difference": 0.018933096900582314
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9201117753982544,
+        "minimum_vector_cosine": -0.9999938011169434,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 3352.00634765625,
+        "native_norm": 24302.97265625,
+        "mapped_norm": 24866.32421875,
+        "relative_norm_difference": 0.02318035624921322
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.3684396743774414,
+        "minimum_vector_cosine": 2.0237266085132433e-08,
+        "maximum_vector_cosine": 0.9999333620071411,
+        "mean_l2_distance": 1.014622449874878,
+        "native_norm": 0.8254461288452148,
+        "mapped_norm": 0.9953573942184448,
+        "relative_norm_difference": 0.20584173500537872
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9399579763412476,
+        "minimum_vector_cosine": 0.7939805388450623,
+        "maximum_vector_cosine": 0.9512832164764404,
+        "mean_l2_distance": 4.916810989379883,
+        "native_norm": 12.750818252563477,
+        "mapped_norm": 14.25881576538086,
+        "relative_norm_difference": 0.11826672405004501
+      }
+    },
+    {
+      "block": 18,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.999992311000824,
+        "minimum_vector_cosine": 0.9999815225601196,
+        "maximum_vector_cosine": 0.9999998211860657,
+        "mean_l2_distance": 1.4713149070739746,
+        "native_norm": 422.6502990722656,
+        "mapped_norm": 422.6475524902344,
+        "relative_norm_difference": 6.498474249383435e-06,
+        "per_vector_cosine": [
+          0.9999898076057434,
+          0.9999932050704956,
+          0.9999967217445374,
+          0.9999998211860657,
+          0.9999815225601196
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5486413240432739,
+        "minimum_vector_cosine": 0.22430668771266937,
+        "maximum_vector_cosine": 0.9055824279785156,
+        "mean_l2_distance": 1.9397671222686768,
+        "native_norm": 1.6472053527832031,
+        "mapped_norm": 1.9443187713623047,
+        "relative_norm_difference": 0.18037424981594086,
+        "per_vector_cosine": [
+          0.22430668771266937,
+          0.6200765371322632,
+          0.6812509894371033,
+          0.9055824279785156,
+          0.31198984384536743
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9808861017227173,
+        "minimum_vector_cosine": 0.5362519025802612,
+        "maximum_vector_cosine": 0.9998078346252441,
+        "mean_l2_distance": 283.1150817871094,
+        "native_norm": 1790.8192138671875,
+        "mapped_norm": 1875.208251953125,
+        "relative_norm_difference": 0.047123149037361145
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.8882184624671936,
+        "minimum_vector_cosine": -0.9999988079071045,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 6489.11328125,
+        "native_norm": 35709.859375,
+        "mapped_norm": 38685.39453125,
+        "relative_norm_difference": 0.08332531154155731
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.3619208037853241,
+        "minimum_vector_cosine": 0.0005356508190743625,
+        "maximum_vector_cosine": 0.9999925494194031,
+        "mean_l2_distance": 1.0164599418640137,
+        "native_norm": 0.8240312337875366,
+        "mapped_norm": 0.9952080249786377,
+        "relative_norm_difference": 0.2077309489250183
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9761244654655457,
+        "minimum_vector_cosine": 0.9320811629295349,
+        "maximum_vector_cosine": 0.9802179336547852,
+        "mean_l2_distance": 4.5307841300964355,
+        "native_norm": 17.819021224975586,
+        "mapped_norm": 19.7799015045166,
+        "relative_norm_difference": 0.1100442185997963
+      }
+    },
+    {
+      "block": 19,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999914169311523,
+        "minimum_vector_cosine": 0.9999776482582092,
+        "maximum_vector_cosine": 0.9999998807907104,
+        "mean_l2_distance": 1.480244517326355,
+        "native_norm": 411.8309631347656,
+        "mapped_norm": 411.7613220214844,
+        "relative_norm_difference": 0.00016910121485125273,
+        "per_vector_cosine": [
+          0.9999892711639404,
+          0.9999933242797852,
+          0.9999972581863403,
+          0.9999998807907104,
+          0.9999776482582092
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5886918902397156,
+        "minimum_vector_cosine": 0.2975585460662842,
+        "maximum_vector_cosine": 0.9820830821990967,
+        "mean_l2_distance": 1.9749443531036377,
+        "native_norm": 2.268855333328247,
+        "mapped_norm": 2.0909945964813232,
+        "relative_norm_difference": 0.07839227467775345,
+        "per_vector_cosine": [
+          0.2975585460662842,
+          0.5935318470001221,
+          0.7309502959251404,
+          0.9820830821990967,
+          0.3393356204032898
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9758210182189941,
+        "minimum_vector_cosine": 0.36937215924263,
+        "maximum_vector_cosine": 0.999970555305481,
+        "mean_l2_distance": 358.43695068359375,
+        "native_norm": 2266.198974609375,
+        "mapped_norm": 2384.337890625,
+        "relative_norm_difference": 0.052130866795778275
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.8656493425369263,
+        "minimum_vector_cosine": -0.9999978542327881,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 8472.259765625,
+        "native_norm": 38154.7734375,
+        "mapped_norm": 41192.0703125,
+        "relative_norm_difference": 0.0796046331524849
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.23155231773853302,
+        "minimum_vector_cosine": 1.0118257730457704e-39,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.148158311843872,
+        "native_norm": 0.8741326928138733,
+        "mapped_norm": 0.9854779243469238,
+        "relative_norm_difference": 0.1273779571056366
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9950835704803467,
+        "minimum_vector_cosine": 0.9841488003730774,
+        "maximum_vector_cosine": 0.9971176385879517,
+        "mean_l2_distance": 12.124431610107422,
+        "native_norm": 74.97711944580078,
+        "mapped_norm": 65.01226806640625,
+        "relative_norm_difference": 0.13290522992610931
+      }
+    },
+    {
+      "block": 20,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999870657920837,
+        "minimum_vector_cosine": 0.9999706745147705,
+        "maximum_vector_cosine": 0.9999996423721313,
+        "mean_l2_distance": 1.6183054447174072,
+        "native_norm": 359.9820861816406,
+        "mapped_norm": 359.8503723144531,
+        "relative_norm_difference": 0.0003658900677692145,
+        "per_vector_cosine": [
+          0.9999801516532898,
+          0.99998939037323,
+          0.9999953508377075,
+          0.9999996423721313,
+          0.9999706745147705
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5768235921859741,
+        "minimum_vector_cosine": 0.2659022808074951,
+        "maximum_vector_cosine": 0.9353227615356445,
+        "mean_l2_distance": 1.6570125818252563,
+        "native_norm": 1.567907452583313,
+        "mapped_norm": 1.6893329620361328,
+        "relative_norm_difference": 0.07744430750608444,
+        "per_vector_cosine": [
+          0.2659022808074951,
+          0.6180170774459839,
+          0.7109828591346741,
+          0.9353227615356445,
+          0.3538929522037506
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9914540648460388,
+        "minimum_vector_cosine": 0.6695156097412109,
+        "maximum_vector_cosine": 0.9999788999557495,
+        "mean_l2_distance": 337.8023681640625,
+        "native_norm": 3567.733642578125,
+        "mapped_norm": 3672.78955078125,
+        "relative_norm_difference": 0.02944611944258213
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9403406977653503,
+        "minimum_vector_cosine": -0.999984622001648,
+        "maximum_vector_cosine": 1.0000001192092896,
+        "mean_l2_distance": 6865.134765625,
+        "native_norm": 64315.734375,
+        "mapped_norm": 66792.453125,
+        "relative_norm_difference": 0.03850875422358513
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.15409183502197266,
+        "minimum_vector_cosine": 1.6349550317112437e-30,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.2341046333312988,
+        "native_norm": 0.919232189655304,
+        "mapped_norm": 0.9896289706230164,
+        "relative_norm_difference": 0.0765821561217308
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9747310280799866,
+        "minimum_vector_cosine": 0.8860195875167847,
+        "maximum_vector_cosine": 0.9864135384559631,
+        "mean_l2_distance": 4.636444568634033,
+        "native_norm": 19.27804946899414,
+        "mapped_norm": 20.6583194732666,
+        "relative_norm_difference": 0.07159800827503204
+      }
+    },
+    {
+      "block": 21,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999769330024719,
+        "minimum_vector_cosine": 0.9999467134475708,
+        "maximum_vector_cosine": 0.9999995231628418,
+        "mean_l2_distance": 1.6104158163070679,
+        "native_norm": 269.0693359375,
+        "mapped_norm": 268.9232482910156,
+        "relative_norm_difference": 0.0005429367884062231,
+        "per_vector_cosine": [
+          0.999965488910675,
+          0.9999805092811584,
+          0.9999924898147583,
+          0.9999995231628418,
+          0.9999467134475708
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.5854655504226685,
+        "minimum_vector_cosine": 0.2997761368751526,
+        "maximum_vector_cosine": 0.9483454823493958,
+        "mean_l2_distance": 1.9166876077651978,
+        "native_norm": 1.8467857837677002,
+        "mapped_norm": 1.976930856704712,
+        "relative_norm_difference": 0.07047112286090851,
+        "per_vector_cosine": [
+          0.3215351700782776,
+          0.6044607162475586,
+          0.7532101273536682,
+          0.9483454823493958,
+          0.2997761368751526
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9966881275177002,
+        "minimum_vector_cosine": 0.8802223801612854,
+        "maximum_vector_cosine": 0.9999723434448242,
+        "mean_l2_distance": 213.44815063476562,
+        "native_norm": 3622.56689453125,
+        "mapped_norm": 3682.55322265625,
+        "relative_norm_difference": 0.016559066250920296
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9655025005340576,
+        "minimum_vector_cosine": -0.9999352097511292,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 2572.45751953125,
+        "native_norm": 34543.69921875,
+        "mapped_norm": 35511.796875,
+        "relative_norm_difference": 0.028025303035974503
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.21901598572731018,
+        "minimum_vector_cosine": 4.604665940989096e-28,
+        "maximum_vector_cosine": 0.9999980330467224,
+        "mean_l2_distance": 1.1498357057571411,
+        "native_norm": 0.9490113258361816,
+        "mapped_norm": 0.9999954104423523,
+        "relative_norm_difference": 0.05372336879372597
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9620333909988403,
+        "minimum_vector_cosine": 0.9590628743171692,
+        "maximum_vector_cosine": 0.966812789440155,
+        "mean_l2_distance": 5.563096523284912,
+        "native_norm": 16.872425079345703,
+        "mapped_norm": 19.35373878479004,
+        "relative_norm_difference": 0.1470632553100586
+      }
+    },
+    {
+      "block": 22,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999546408653259,
+        "minimum_vector_cosine": 0.9998940229415894,
+        "maximum_vector_cosine": 0.999998927116394,
+        "mean_l2_distance": 1.6061691045761108,
+        "native_norm": 187.68060302734375,
+        "mapped_norm": 187.3719482421875,
+        "relative_norm_difference": 0.0016445748042315245,
+        "per_vector_cosine": [
+          0.9998940229415894,
+          0.9999592304229736,
+          0.9999842643737793,
+          0.999998927116394,
+          0.9999363422393799
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.616244912147522,
+        "minimum_vector_cosine": 0.3211289644241333,
+        "maximum_vector_cosine": 0.9713797569274902,
+        "mean_l2_distance": 1.4093865156173706,
+        "native_norm": 1.5017365217208862,
+        "mapped_norm": 1.6622695922851562,
+        "relative_norm_difference": 0.10689829289913177,
+        "per_vector_cosine": [
+          0.3211289644241333,
+          0.6024991273880005,
+          0.8608093857765198,
+          0.9713797569274902,
+          0.32540732622146606
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.999120831489563,
+        "minimum_vector_cosine": 0.9461227655410767,
+        "maximum_vector_cosine": 0.9999960660934448,
+        "mean_l2_distance": 200.0139617919922,
+        "native_norm": 8470.96484375,
+        "mapped_norm": 8474.3662109375,
+        "relative_norm_difference": 0.0004015324520878494
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.988386869430542,
+        "minimum_vector_cosine": -0.9997962117195129,
+        "maximum_vector_cosine": 0.9999998807907104,
+        "mean_l2_distance": 1669.306396484375,
+        "native_norm": 38201.359375,
+        "mapped_norm": 37769.90234375,
+        "relative_norm_difference": 0.011294284835457802
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.08263899385929108,
+        "minimum_vector_cosine": 0.0,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.3052928447723389,
+        "native_norm": 0.9875503182411194,
+        "mapped_norm": 1.0,
+        "relative_norm_difference": 0.012606630101799965
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9494814276695251,
+        "minimum_vector_cosine": 0.9365361332893372,
+        "maximum_vector_cosine": 0.9521992802619934,
+        "mean_l2_distance": 7.809908866882324,
+        "native_norm": 17.301101684570312,
+        "mapped_norm": 22.041410446166992,
+        "relative_norm_difference": 0.27398884296417236
+      }
+    },
+    {
+      "block": 23,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9999350905418396,
+        "minimum_vector_cosine": 0.9998586177825928,
+        "maximum_vector_cosine": 0.9999983310699463,
+        "mean_l2_distance": 1.707332968711853,
+        "native_norm": 164.11961364746094,
+        "mapped_norm": 163.77490234375,
+        "relative_norm_difference": 0.002100366400554776,
+        "per_vector_cosine": [
+          0.9998586177825928,
+          0.999950110912323,
+          0.9999714493751526,
+          0.9999983310699463,
+          0.9998967051506042
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.6320757269859314,
+        "minimum_vector_cosine": 0.3470327854156494,
+        "maximum_vector_cosine": 0.9572815299034119,
+        "mean_l2_distance": 1.6137819290161133,
+        "native_norm": 1.6993788480758667,
+        "mapped_norm": 1.8837651014328003,
+        "relative_norm_difference": 0.10850214958190918,
+        "per_vector_cosine": [
+          0.3470327854156494,
+          0.6397832632064819,
+          0.8262953758239746,
+          0.9572815299034119,
+          0.38998571038246155
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9992204308509827,
+        "minimum_vector_cosine": 0.967567503452301,
+        "maximum_vector_cosine": 0.9999948143959045,
+        "mean_l2_distance": 194.07965087890625,
+        "native_norm": 6492.22314453125,
+        "mapped_norm": 6483.7890625,
+        "relative_norm_difference": 0.0012991053517907858
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9895565509796143,
+        "minimum_vector_cosine": -0.9979550838470459,
+        "maximum_vector_cosine": 0.9999998807907104,
+        "mean_l2_distance": 1312.5740966796875,
+        "native_norm": 32840.38671875,
+        "mapped_norm": 32374.103515625,
+        "relative_norm_difference": 0.014198468998074532
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.0030456052627414465,
+        "minimum_vector_cosine": 0.0,
+        "maximum_vector_cosine": 0.9999977946281433,
+        "mean_l2_distance": 1.410366415977478,
+        "native_norm": 0.9978607296943665,
+        "mapped_norm": 1.0,
+        "relative_norm_difference": 0.002143856603652239
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9129911661148071,
+        "minimum_vector_cosine": 0.8885231018066406,
+        "maximum_vector_cosine": 0.9268096685409546,
+        "mean_l2_distance": 8.574703216552734,
+        "native_norm": 15.18106746673584,
+        "mapped_norm": 19.79023551940918,
+        "relative_norm_difference": 0.30361291766166687
+      }
+    },
+    {
+      "block": 24,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9997711181640625,
+        "minimum_vector_cosine": 0.9995385408401489,
+        "maximum_vector_cosine": 0.9999933242797852,
+        "mean_l2_distance": 1.7573789358139038,
+        "native_norm": 82.1075210571289,
+        "mapped_norm": 81.378662109375,
+        "relative_norm_difference": 0.00887688435614109,
+        "per_vector_cosine": [
+          0.9995385408401489,
+          0.999793529510498,
+          0.9998955130577087,
+          0.9999933242797852,
+          0.9996346831321716
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.6548880934715271,
+        "minimum_vector_cosine": 0.3683242201805115,
+        "maximum_vector_cosine": 0.9559289813041687,
+        "mean_l2_distance": 1.4355400800704956,
+        "native_norm": 1.5473318099975586,
+        "mapped_norm": 1.8169111013412476,
+        "relative_norm_difference": 0.17422203719615936,
+        "per_vector_cosine": [
+          0.40147078037261963,
+          0.6682190895080566,
+          0.8804974555969238,
+          0.9559289813041687,
+          0.3683242201805115
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9995264410972595,
+        "minimum_vector_cosine": 0.9929448962211609,
+        "maximum_vector_cosine": 0.9999960660934448,
+        "mean_l2_distance": 188.43923950195312,
+        "native_norm": 8869.1953125,
+        "mapped_norm": 8880.6748046875,
+        "relative_norm_difference": 0.001294310437515378
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9994168877601624,
+        "minimum_vector_cosine": -0.9594241976737976,
+        "maximum_vector_cosine": 0.9999970197677612,
+        "mean_l2_distance": 949.9739379882812,
+        "native_norm": 30480.33984375,
+        "mapped_norm": 30000.265625,
+        "relative_norm_difference": 0.01575029082596302
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.01632419414818287,
+        "minimum_vector_cosine": 0.0,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.3936703205108643,
+        "native_norm": 0.9959681630134583,
+        "mapped_norm": 0.9999469518661499,
+        "relative_norm_difference": 0.003994895610958338
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.9233607649803162,
+        "minimum_vector_cosine": 0.9128709435462952,
+        "maximum_vector_cosine": 0.9415842294692993,
+        "mean_l2_distance": 10.130680084228516,
+        "native_norm": 16.2123966217041,
+        "mapped_norm": 22.9720516204834,
+        "relative_norm_difference": 0.41694360971450806
+      }
+    },
+    {
+      "block": 25,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9998466372489929,
+        "minimum_vector_cosine": 0.9996851682662964,
+        "maximum_vector_cosine": 0.9999961853027344,
+        "mean_l2_distance": 1.851765513420105,
+        "native_norm": 116.53199768066406,
+        "mapped_norm": 116.1316909790039,
+        "relative_norm_difference": 0.003435165621340275,
+        "per_vector_cosine": [
+          0.9996851682662964,
+          0.999885618686676,
+          0.9999344944953918,
+          0.9999961853027344,
+          0.9997321367263794
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.7097851634025574,
+        "minimum_vector_cosine": 0.4260634779930115,
+        "maximum_vector_cosine": 0.9609583616256714,
+        "mean_l2_distance": 1.267768383026123,
+        "native_norm": 1.5949581861495972,
+        "mapped_norm": 1.8541053533554077,
+        "relative_norm_difference": 0.162478968501091,
+        "per_vector_cosine": [
+          0.5417603254318237,
+          0.6683024168014526,
+          0.9518409371376038,
+          0.9609583616256714,
+          0.4260634779930115
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9996256232261658,
+        "minimum_vector_cosine": 0.9952183961868286,
+        "maximum_vector_cosine": 0.9999958872795105,
+        "mean_l2_distance": 172.6520538330078,
+        "native_norm": 7212.466796875,
+        "mapped_norm": 7245.98681640625,
+        "relative_norm_difference": 0.0046475110575556755
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9987763166427612,
+        "minimum_vector_cosine": -0.9705418348312378,
+        "maximum_vector_cosine": 0.9999989867210388,
+        "mean_l2_distance": 626.42529296875,
+        "native_norm": 35273.47265625,
+        "mapped_norm": 35308.6796875,
+        "relative_norm_difference": 0.0009981164475902915
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.008146889507770538,
+        "minimum_vector_cosine": 0.0,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.403683066368103,
+        "native_norm": 0.9983001351356506,
+        "mapped_norm": 0.9999847412109375,
+        "relative_norm_difference": 0.001687474548816681
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.8625953197479248,
+        "minimum_vector_cosine": 0.19093242287635803,
+        "maximum_vector_cosine": 0.8990913033485413,
+        "mean_l2_distance": 15.682775497436523,
+        "native_norm": 15.65146541595459,
+        "mapped_norm": 27.036962509155273,
+        "relative_norm_difference": 0.7274397015571594
+      }
+    },
+    {
+      "block": 26,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9996429681777954,
+        "minimum_vector_cosine": 0.9993178844451904,
+        "maximum_vector_cosine": 0.9999881982803345,
+        "mean_l2_distance": 1.7386982440948486,
+        "native_norm": 71.43923950195312,
+        "mapped_norm": 71.12151336669922,
+        "relative_norm_difference": 0.004447501618415117,
+        "per_vector_cosine": [
+          0.9993607997894287,
+          0.999712347984314,
+          0.9998354911804199,
+          0.9999881982803345,
+          0.9993178844451904
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.6183483004570007,
+        "minimum_vector_cosine": 0.3274698257446289,
+        "maximum_vector_cosine": 0.9615649580955505,
+        "mean_l2_distance": 1.3249609470367432,
+        "native_norm": 1.4392484426498413,
+        "mapped_norm": 1.6024473905563354,
+        "relative_norm_difference": 0.11339178681373596,
+        "per_vector_cosine": [
+          0.36101698875427246,
+          0.5729562044143677,
+          0.8687337040901184,
+          0.9615649580955505,
+          0.3274698257446289
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9994920492172241,
+        "minimum_vector_cosine": 0.993189811706543,
+        "maximum_vector_cosine": 0.999991238117218,
+        "mean_l2_distance": 196.18988037109375,
+        "native_norm": 7549.5146484375,
+        "mapped_norm": 7568.21826171875,
+        "relative_norm_difference": 0.002477459143847227
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9730920195579529,
+        "minimum_vector_cosine": -0.42987263202667236,
+        "maximum_vector_cosine": 0.999998927116394,
+        "mean_l2_distance": 454.68426513671875,
+        "native_norm": 28601.126953125,
+        "mapped_norm": 28437.048828125,
+        "relative_norm_difference": 0.005736771505326033
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.027946699410676956,
+        "minimum_vector_cosine": 0.0,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.37406325340271,
+        "native_norm": 0.9972243905067444,
+        "mapped_norm": 0.998204231262207,
+        "relative_norm_difference": 0.000982568017207086
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.916806697845459,
+        "minimum_vector_cosine": 0.8282935619354248,
+        "maximum_vector_cosine": 0.9568545818328857,
+        "mean_l2_distance": 8.926204681396484,
+        "native_norm": 18.955184936523438,
+        "mapped_norm": 22.0770263671875,
+        "relative_norm_difference": 0.16469590365886688
+      }
+    },
+    {
+      "block": 27,
+      "key": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.9998683929443359,
+        "minimum_vector_cosine": 0.9996522068977356,
+        "maximum_vector_cosine": 0.9999927282333374,
+        "mean_l2_distance": 1.8324854373931885,
+        "native_norm": 124.0524673461914,
+        "mapped_norm": 123.6076889038086,
+        "relative_norm_difference": 0.003585405880585313,
+        "per_vector_cosine": [
+          0.9996522068977356,
+          0.9999290108680725,
+          0.9999436140060425,
+          0.9999927282333374,
+          0.9998247027397156
+        ]
+      },
+      "value": {
+        "tensor_shape": [
+          1,
+          300,
+          1152
+        ],
+        "compared_vectors": 5,
+        "cosine_similarity": 0.7451647520065308,
+        "minimum_vector_cosine": 0.5324849486351013,
+        "maximum_vector_cosine": 0.97491854429245,
+        "mean_l2_distance": 0.7919285893440247,
+        "native_norm": 1.127375602722168,
+        "mapped_norm": 1.2547403573989868,
+        "relative_norm_difference": 0.11297455430030823,
+        "per_vector_cosine": [
+          0.5329526662826538,
+          0.7412286400794983,
+          0.9442389607429504,
+          0.97491854429245,
+          0.5324849486351013
+        ]
+      },
+      "query": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          72
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.9997801780700684,
+        "minimum_vector_cosine": 0.9946752786636353,
+        "maximum_vector_cosine": 0.9999983310699463,
+        "mean_l2_distance": 319.481201171875,
+        "native_norm": 22267.3046875,
+        "mapped_norm": 22346.69140625,
+        "relative_norm_difference": 0.0035651696380227804
+      },
+      "attention_logits": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.982303261756897,
+        "minimum_vector_cosine": -0.4101860225200653,
+        "maximum_vector_cosine": 0.999998927116394,
+        "mean_l2_distance": 1699.5302734375,
+        "native_norm": 181302.71875,
+        "mapped_norm": 181099.28125,
+        "relative_norm_difference": 0.0011220874730497599
+      },
+      "attention_weights": {
+        "tensor_shape": [
+          1,
+          16,
+          1024,
+          5
+        ],
+        "compared_vectors": 16384,
+        "cosine_similarity": 0.21095694601535797,
+        "minimum_vector_cosine": 0.0,
+        "maximum_vector_cosine": 1.0,
+        "mean_l2_distance": 1.1208958625793457,
+        "native_norm": 0.9929437041282654,
+        "mapped_norm": 0.998878002166748,
+        "relative_norm_difference": 0.005976469721645117
+      },
+      "cross_attention_output": {
+        "tensor_shape": [
+          1,
+          1024,
+          1152
+        ],
+        "compared_vectors": 1024,
+        "cosine_similarity": 0.970058798789978,
+        "minimum_vector_cosine": 0.8896732926368713,
+        "maximum_vector_cosine": 0.9830189943313599,
+        "mean_l2_distance": 7.289678573608398,
+        "native_norm": 18.74542999267578,
+        "mapped_norm": 23.806081771850586,
+        "relative_norm_difference": 0.2699672281742096
+      }
+    }
+  ],
+  "native_reinjection_sanity": {
+    "passed": true,
+    "maximum_absolute_difference": 0.0,
+    "mean_absolute_difference": 0.0,
+    "output_comparison": {
+      "tensor_shape": [
+        1,
+        32,
+        32,
+        32
+      ],
+      "compared_vectors": 1024,
+      "cosine_similarity": 1.0,
+      "minimum_vector_cosine": 0.9999997615814209,
+      "maximum_vector_cosine": 1.000000238418579,
+      "mean_l2_distance": 0.0,
+      "native_norm": 3.8684749603271484,
+      "mapped_norm": 3.8684749603271484,
+      "relative_norm_difference": 0.0
+    }
+  },
+  "native_embedding_with_mapped_mask": {
+    "matches_normal_native": false,
+    "maximum_absolute_difference": 0.4345703125,
+    "mean_absolute_difference": 0.05875146761536598,
+    "output_comparison": {
+      "tensor_shape": [
+        1,
+        32,
+        32,
+        32
+      ],
+      "compared_vectors": 1024,
+      "cosine_similarity": 0.9939663410186768,
+      "minimum_vector_cosine": 0.9706026315689087,
+      "maximum_vector_cosine": 0.9985116720199585,
+      "mean_l2_distance": 0.4144305884838104,
+      "native_norm": 3.8684749603271484,
+      "mapped_norm": 3.8883769512176514,
+      "relative_norm_difference": 0.005144660826772451
+    }
+  },
+  "debug_timestep": [
+    500.0
+  ]
+}
