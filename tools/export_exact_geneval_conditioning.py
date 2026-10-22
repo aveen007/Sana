@@ -35,6 +35,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-id", help="Override the text encoder selected by the config")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument(
+        "--compact",
+        action="store_true",
+        help="Store only active token embeddings instead of the dense padded tensor.",
+    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     if args.batch_size <= 0:
@@ -145,9 +150,11 @@ def main() -> None:
                 encoded["input_ids"][start:end].to(device),
                 encoded["attention_mask"][start:end].to(device),
             )[0]
-            embedding_parts.append(
-                hidden.index_select(1, selected_device_index).to(device="cpu", dtype=torch.bfloat16)
-            )
+            selected_hidden = hidden.index_select(1, selected_device_index)
+            if args.compact:
+                active_mask = selected_attention_mask[start:end].bool().to(device)
+                selected_hidden = selected_hidden[active_mask]
+            embedding_parts.append(selected_hidden.to(device="cpu", dtype=torch.bfloat16))
     native_embeddings = torch.cat(embedding_parts).contiguous()
 
     prompt_ids = [hashlib.sha256(prompt.encode("utf-8")).hexdigest() for prompt in prompts]
@@ -155,8 +162,6 @@ def main() -> None:
         "format_version": 1,
         "kind": "sana_native_exact_geneval_conditioning",
         "projected_text_mode": "native_sequence",
-        # Y_pred makes this file directly usable by --projected_text_embeddings.
-        "Y_pred": native_embeddings,
         "attention_mask": selected_attention_mask.contiguous(),
         "input_ids": selected_input_ids.contiguous(),
         "special_tokens_mask": selected_special_mask.contiguous(),
@@ -173,19 +178,43 @@ def main() -> None:
         "config_path": str(args.config),
         "metadata_path": str(args.metadata),
     }
+    dense_shape = (len(rows), sequence_length, native_embeddings.shape[-1])
+    if args.compact:
+        bundle.update(
+            {
+                "format_version": 2,
+                "Y_pred_active": native_embeddings,
+                "conditioning_storage": "active_tokens_only",
+                "dense_shape": list(dense_shape),
+            }
+        )
+    else:
+        # Y_pred makes the dense file directly usable by --projected_text_embeddings.
+        bundle["Y_pred"] = native_embeddings
     atomic_torch_save(conditioning_path, bundle)
     write_kaggle_inputs(kaggle_path, rows, chi_prompt)
 
     saved = torch.load(conditioning_path, map_location="cpu", weights_only=True, mmap=True)
-    expected_shape = (len(rows), sequence_length, native_embeddings.shape[-1])
-    if tuple(saved["Y_pred"].shape) != expected_shape:
-        raise RuntimeError(f"Saved embedding shape is wrong: {tuple(saved['Y_pred'].shape)} != {expected_shape}")
+    if args.compact:
+        expected_active_shape = (int(selected_attention_mask.sum()), native_embeddings.shape[-1])
+        if tuple(saved["Y_pred_active"].shape) != expected_active_shape:
+            raise RuntimeError(
+                "Saved active embedding shape is wrong: "
+                f"{tuple(saved['Y_pred_active'].shape)} != {expected_active_shape}"
+            )
+        if tuple(saved["dense_shape"]) != dense_shape:
+            raise RuntimeError(f"Saved dense shape is wrong: {saved['dense_shape']} != {dense_shape}")
+    elif tuple(saved["Y_pred"].shape) != dense_shape:
+        raise RuntimeError(f"Saved embedding shape is wrong: {tuple(saved['Y_pred'].shape)} != {dense_shape}")
     if not torch.equal(saved["attention_mask"], selected_attention_mask):
         raise RuntimeError("Saved attention mask differs from the native SANA mask")
 
     print(f"Conditioning: {conditioning_path}")
     print(f"Kaggle input: {kaggle_path}")
-    print(f"Y_pred: {tuple(native_embeddings.shape)} {native_embeddings.dtype}")
+    storage_key = "Y_pred_active" if args.compact else "Y_pred"
+    print(f"{storage_key}: {tuple(native_embeddings.shape)} {native_embeddings.dtype}")
+    if args.compact:
+        print(f"Dense logical shape: {dense_shape}")
     print(f"Attention mask: {tuple(selected_attention_mask.shape)} ({int(selected_attention_mask.sum())} active)")
     print(f"CHI characters: {len(chi_prompt)}")
 

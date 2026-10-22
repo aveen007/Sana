@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a 7,000-class SANA calculation set from the native Gemma vocabulary.
+"""Build a 20,000-class SANA calculation set from the native Gemma vocabulary.
 
 All 80 official GenEval object classes are intentionally included. The remaining
 slots are filled with usable decoded surfaces from the native SANA/Gemma
@@ -24,7 +24,7 @@ from typing import Any
 DEFAULT_OFFICIAL_METADATA = Path("tools/metrics/geneval/prompts/evaluation_metadata.jsonl")
 DEFAULT_ORIGINAL_CLASSES = Path("tools/metrics/geneval/evaluation/object_names.txt")
 DEFAULT_MODEL_ID = "Efficient-Large-Model/gemma-2-2b-it"
-DEFAULT_TARGET_CLASS_COUNT = 7_000
+DEFAULT_TARGET_CLASS_COUNT = 20_000
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("output/text_embeddings/geneval_vocab7000"),
+        default=Path("output/text_embeddings/geneval_vocab20000"),
     )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
