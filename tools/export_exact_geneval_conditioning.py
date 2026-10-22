@@ -20,6 +20,11 @@ DEFAULT_METADATA = Path("tools/metrics/geneval/prompts/evaluation_metadata.jsonl
 TEXT_ENCODERS = {
     "gemma-2-2b-it": "Efficient-Large-Model/gemma-2-2b-it",
 }
+TORCH_DTYPES = {
+    "bfloat16": torch.bfloat16,
+    "float16": torch.float16,
+    "float32": torch.float32,
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,6 +39,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--model-id", help="Override the text encoder selected by the config")
     parser.add_argument("--device", default="cuda")
+    parser.add_argument(
+        "--dtype",
+        choices=tuple(TORCH_DTYPES),
+        default="bfloat16",
+        help="Text-encoder compute and saved embedding dtype.",
+    )
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument(
         "--compact",
@@ -134,8 +145,9 @@ def main() -> None:
     selected_offsets = encoded["offset_mapping"].index_select(1, select_index).to(torch.int32)
 
     device = torch.device(args.device)
+    compute_dtype = TORCH_DTYPES[args.dtype]
     text_encoder = (
-        AutoModelForCausalLM.from_pretrained(model_id, torch_dtype=torch.bfloat16)
+        AutoModelForCausalLM.from_pretrained(model_id, dtype=compute_dtype)
         .get_decoder()
         .to(device)
         .eval()
@@ -154,7 +166,7 @@ def main() -> None:
             if args.compact:
                 active_mask = selected_attention_mask[start:end].bool().to(device)
                 selected_hidden = selected_hidden[active_mask]
-            embedding_parts.append(selected_hidden.to(device="cpu", dtype=torch.bfloat16))
+            embedding_parts.append(selected_hidden.to(device="cpu", dtype=compute_dtype))
     native_embeddings = torch.cat(embedding_parts).contiguous()
 
     prompt_ids = [hashlib.sha256(prompt.encode("utf-8")).hexdigest() for prompt in prompts]
@@ -172,6 +184,7 @@ def main() -> None:
         "chi_prompt": chi_prompt,
         "text_encoder_name": encoder_name,
         "text_encoder_model_id": model_id,
+        "text_encoder_dtype": args.dtype,
         "tokenizer_padding_side": "right",
         "sequence_length": sequence_length,
         "tokenizer_max_length": tokenizer_max_length,
