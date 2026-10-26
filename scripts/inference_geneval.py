@@ -318,6 +318,7 @@ def visualize(sample_steps, cfg_scale, pag_scale):
                         device=device,
                         generator=generator,
                     )
+                    sample_count += batch_size
                     continue
 
                 # prepare text feature
