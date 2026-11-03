@@ -4,6 +4,14 @@
 
 The goal is to replace SANA's native Gemma text conditioning with projected LLaVA features while preserving image-generation performance on GenEval.
 
+## Final cross-repository comparison
+
+| Repository | Metric | Baseline | Previous projection | Final projection |
+|---|---|---:|---:|---:|
+| SANA | GenEval overall (higher is better) | **0.66732** | 0.48796 | **0.51011** (SEAM + Reverse SEAM) |
+| Qwen3-TTS | Mean utterance WER / CER (lower is better) | **1.777% / not recorded** | 2.075% / not recorded | **1.991% / 0.493%** |
+| PixArt-Alpha | T2I-CompBench CLIP (higher is better) | **0.3098** | 0.2984 | **0.2999** |
+
 ## Work completed
 
 ### 1. Restored SANA's prompt context
@@ -70,17 +78,17 @@ The full constant-scale benchmark has now been completed. The remaining work is:
 
 The complete evaluation used all 553 prompts and four images per prompt, for a total of 2,212 generated images.
 
-| Metric | Our method | Native SANA baseline |
-|---|---:|---:|
-| Correct images | **47.38%** (1,048/2,212) | **65.19%** |
-| Correct prompts | **64.38%** (356/553) | **78.30%** |
-| Counting | **47.81%** (153/320) | **70.00%** |
-| Color attributes | **25.75%** (103/400) | **40.00%** |
-| Colors | **69.95%** (263/376) | **87.23%** |
-| Position | **20.75%** (83/400) | **25.50%** |
-| Single object | **82.81%** (265/320) | **99.38%** |
-| Two objects | **45.71%** (181/396) | **78.28%** |
-| **Overall GenEval** | **0.48796** | **0.66732** |
+| Metric | Vocab-1080 Forward SEAM + learned scale | Previous constant-scale projection | Native SANA baseline | SANA paper/repository |
+|---|---:|---:|---:|---:|
+| Correct images | **48.46%** (1,072/2,212) | 47.38% (1,048/2,212) | 65.19% | - |
+| Correct prompts | **60.04%** (332/553) | 64.38% (356/553) | 78.30% | - |
+| Counting | **65.00%** (208/320) | 47.81% (153/320) | 70.00% | - |
+| Color attributes | **5.75%** (23/400) | 25.75% (103/400) | 40.00% | - |
+| Colors | **85.37%** (321/376) | 69.95% (263/376) | 87.23% | - |
+| Position | **14.25%** (57/400) | 20.75% (83/400) | 25.50% | - |
+| Single object | **97.81%** (313/320) | 82.81% (265/320) | 99.38% | - |
+| Two objects | **37.88%** (150/396) | 45.71% (181/396) | 78.28% | - |
+| **Overall GenEval** | **0.51011** | **0.48796** | **0.66732** | **0.68** |
 
 Next, I will learn a token-specific scale projection from the calculation set so that each projected direction receives an appropriate predicted magnitude instead of using one global x113 factor.
 
